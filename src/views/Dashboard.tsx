@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect } from 'react';
-// FIX: Added Admin type to import
-import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, TherapyProgram, Therapist, User, Admin } from '../types';
+// FIX: Added Admin and PainJournalEntry type to import
+import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, Admin } from '../types';
 
 import AdminDashboard from '../panels/AdminDashboard';
 import TherapistDashboard from '../panels/TherapistDashboard';
@@ -34,6 +34,7 @@ interface DashboardProps {
     setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
     setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
     onCompleteExercise: (patientId: string, exerciseId: string) => void;
+    onAddJournalEntry: (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => void;
     onCategoryDelete: (id: string) => void;
     onServiceDelete: (id: string) => void;
     onPatientDelete: (patient: Patient) => void;
@@ -118,6 +119,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 onStartChat={handleStartChat}
                 setAppointments={props.setAppointments}
                 onCompleteExercise={props.onCompleteExercise}
+                onAddJournalEntry={props.onAddJournalEntry}
             />;
         } else { // Admin
              return <AdminDashboard {...props} />;

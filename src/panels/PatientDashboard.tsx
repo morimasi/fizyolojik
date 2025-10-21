@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState } from 'react';
-import { Appointment, Exercise, Patient, TherapyProgram, Therapist } from '../types';
+import { Appointment, Exercise, Patient, PainJournalEntry, TherapyProgram, Therapist } from '../types';
 import LineChart from '../components/LineChart';
 import VideoModal from '../components/VideoModal';
 import EmptyState from '../components/EmptyState';
@@ -17,6 +17,7 @@ interface PatientDashboardProps {
     onStartChat: (therapist: Therapist) => void;
     setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
     onCompleteExercise: (patientId: string, exerciseId: string) => void;
+    onAddJournalEntry: (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => void;
 }
 
 const ExerciseCalendar: React.FC<{patient: Patient}> = ({ patient }) => {
@@ -68,10 +69,23 @@ const ExerciseCalendar: React.FC<{patient: Patient}> = ({ patient }) => {
 };
 
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist, programs, exercises, appointments, onStartChat, setAppointments, onCompleteExercise }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist, programs, exercises, appointments, onStartChat, setAppointments, onCompleteExercise, onAddJournalEntry }) => {
     const [view, setView] = useState<'summary' | 'programs' | 'journal'>('summary');
     const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string; exerciseId: string } | null>(null);
     const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+    const [painLevel, setPainLevel] = useState(5);
+    const [journalNote, setJournalNote] = useState('');
+
+    const handleJournalSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (journalNote.trim() === '') {
+            alert('Lütfen günlüğünüze bir not ekleyin.');
+            return;
+        }
+        onAddJournalEntry(patient.id, { painLevel, note: journalNote });
+        setJournalNote('');
+        setPainLevel(5);
+    };
 
     const patientPrograms = programs.filter(p => patient.serviceIds.includes(p.id));
     const upcomingAppointments = appointments.filter(a => a.patientId === patient.id && a.status === 'scheduled' && a.start > Date.now()).sort((a, b) => a.start - b.start);
@@ -154,8 +168,57 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist,
 
             {view === 'journal' && (
                 <div className="journal-section">
-                    <LineChart data={patient.painJournal} title="Ağrı Seviyesi Değişimi" />
-                    {/* Pain Journal Form can be added here as a modal or inline */}
+                    <div className="dashboard-grid journal-grid">
+                        <div className="dashboard-card">
+                            <h4>Yeni Günlük Girdisi</h4>
+                            <form className="journal-form" onSubmit={handleJournalSubmit}>
+                                <div className="form-group">
+                                    <label>Bugünkü Ağrı Seviyeniz (1-10)</label>
+                                    <div className="pain-slider">
+                                        <span>1</span>
+                                        <input 
+                                            type="range" 
+                                            min="1" 
+                                            max="10" 
+                                            value={painLevel}
+                                            onChange={e => setPainLevel(parseInt(e.target.value))}
+                                        />
+                                        <span>10</span>
+                                        <span className="pain-value">{painLevel}</span>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="journalNote">Notlarınız</label>
+                                    <textarea 
+                                        id="journalNote"
+                                        rows={4}
+                                        placeholder="Bugün nasıl hissettiğinizi, egzersizlerin nasıl gittiğini veya ağrınızı etkileyen durumları yazabilirsiniz."
+                                        value={journalNote}
+                                        onChange={e => setJournalNote(e.target.value)}
+                                        required
+                                    ></textarea>
+                                </div>
+                                <button type="submit" className="btn btn-primary">Günlüğe Ekle</button>
+                            </form>
+                        </div>
+                        <div className="dashboard-card">
+                            <LineChart data={patient.painJournal} title="Ağrı Seviyesi Değişimi" />
+                        </div>
+                    </div>
+                     <div className="journal-history dashboard-card">
+                        <h4>Geçmiş Girdiler</h4>
+                        <div className="journal-list">
+                            {patient.painJournal.length > 0 ? [...patient.painJournal].reverse().map(entry => (
+                                <div key={entry.date} className="journal-entry">
+                                    <div className="entry-header">
+                                        <strong>{new Date(entry.date).toLocaleDateString('tr-TR')}</strong>
+                                        <span className="entry-pain-level">Ağrı: {entry.painLevel}/10</span>
+                                    </div>
+                                    <p>{entry.note}</p>
+                                </div>
+                            )) : <p className="empty-list-text">Henüz günlük girdiniz yok.</p>}
+                        </div>
+                    </div>
                 </div>
             )}
             

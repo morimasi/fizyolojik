@@ -62,7 +62,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentUser, activeChatPa
         }
     };
 
-    const currentUserId = 'id' in currentUser ? currentUser.id : 'admin';
+    const currentUserId = currentUser.id;
     const chatMessages = messages.filter(m =>
         (m.from === currentUserId && m.to === activeChatPartner.id) ||
         (m.from === activeChatPartner.id && m.to === currentUserId)

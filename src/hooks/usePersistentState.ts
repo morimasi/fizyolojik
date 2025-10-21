@@ -2,7 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { useState, useEffect } from 'react';
+// FIX: Imported Dispatch and SetStateAction to resolve 'React' namespace error.
+import { useState, useEffect, Dispatch, SetStateAction } from 'react';
 
 const getInitialState = <T,>(key: string, mockData: T): T => {
     try {
@@ -14,7 +15,8 @@ const getInitialState = <T,>(key: string, mockData: T): T => {
     }
 };
 
-export const usePersistentState = <T,>(key: string, mockData: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+// FIX: Replaced React.Dispatch and React.SetStateAction with imported types.
+export const usePersistentState = <T,>(key: string, mockData: T): [T, Dispatch<SetStateAction<T>>] => {
     const [state, setState] = useState<T>(() => getInitialState(key, mockData));
 
     useEffect(() => {

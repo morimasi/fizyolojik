@@ -5,8 +5,8 @@
 import React, { useState, useEffect } from 'react';
 import { MOCK_DATA } from './data';
 import { usePersistentState } from './hooks/usePersistentState';
-// FIX: Added Admin to import
-import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, TherapyProgram, Therapist, User, UserRole, Admin } from './types';
+// FIX: Added Admin and PainJournalEntry to import
+import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, UserRole, Admin, Testimonial } from './types';
 
 import LandingPage from './views/LandingPage';
 import RoleSelection from './views/RoleSelection';
@@ -32,6 +32,7 @@ const App: React.FC = () => {
     const [therapists, setTherapists] = usePersistentState<Therapist[]>('therapists', MOCK_DATA.therapists);
     const [messages, setMessages] = usePersistentState<Message[]>('messages', MOCK_DATA.messages);
     const [notifications, setNotifications] = usePersistentState<Notification[]>('notifications', MOCK_DATA.notifications);
+    const [testimonials, setTestimonials] = usePersistentState<Testimonial[]>('testimonials', MOCK_DATA.testimonials);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
@@ -125,6 +126,17 @@ const App: React.FC = () => {
         setPatients(prev => prev.map(p => p.id === patientId ? { ...p, clinicalNotes: [...p.clinicalNotes, newNote].sort((a,b)=> b.date - a.date) } : p ));
     };
 
+    const handleAddJournalEntry = (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => {
+        const newEntry: PainJournalEntry = { ...entryData, date: Date.now() };
+        setPatients(prev => 
+            prev.map(p => 
+                p.id === patientId 
+                    ? { ...p, painJournal: [...p.painJournal, newEntry].sort((a,b) => a.date - b.date) } 
+                    : p
+            )
+        );
+    };
+
     const [activeChatPartner, setActiveChatPartner] = useState<Patient | Therapist | null>(null);
 
     const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -173,7 +185,7 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch(view) {
             case 'landing':
-                return <LandingPage onGoToRoleSelection={() => setView('roleSelection')} therapists={therapists} categories={categories} programs={programs} />;
+                return <LandingPage onGoToRoleSelection={() => setView('roleSelection')} therapists={therapists} categories={categories} programs={programs} testimonials={testimonials} />;
             case 'roleSelection':
                 return <RoleSelection onRoleSelect={handleRoleSelect} onBackToLanding={() => setView('landing')} />;
             case 'login':
@@ -195,6 +207,7 @@ const App: React.FC = () => {
                     setPatients={setPatients}
                     setNotifications={setNotifications}
                     onCompleteExercise={handleCompleteExercise}
+                    onAddJournalEntry={handleAddJournalEntry}
                     onCategoryDelete={(id) => setCategories(prev => prev.filter(c => c.id !== id))}
                     onServiceDelete={(id) => setPrograms(prev => prev.filter(s => s.id !== id))}
                     onPatientDelete={(patient) => setPatients(prev => prev.filter(p => p.id !== patient.id))}

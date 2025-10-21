@@ -170,7 +170,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     { id: 'notif-2', userId: therapist1Id, text: 'Ayşe Demir yeni bir mesaj gönderdi.', timestamp: new Date().getTime() - 86400000 * 2, read: false }
 ];
 
-export const MOCK_TESTIMONIALS: Testimonial[] = [
+const MOCK_TESTIMONIALS: Testimonial[] = [
     {
         id: 'test-1',
         quote: "Bu platform sayesinde diz ameliyatım sonrası iyileşme sürecim inanılmaz hızlandı. Terapistimle sürekli iletişimde olmak bana çok güven verdi. Egzersiz takvimi özelliği ise motivasyonumu hep yüksek tuttu.",
@@ -203,4 +203,5 @@ export const MOCK_DATA = {
     appointments: MOCK_APPOINTMENTS,
     messages: MOCK_MESSAGES,
     notifications: MOCK_NOTIFICATIONS,
+    testimonials: MOCK_TESTIMONIALS,
 };

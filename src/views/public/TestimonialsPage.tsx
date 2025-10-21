@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
-import { MOCK_TESTIMONIALS } from '../../data';
+import { Testimonial } from '../../types';
 
 interface TestimonialsPageProps {
   onBack: () => void;
+  testimonials: Testimonial[];
 }
 
-const TestimonialsPage: React.FC<TestimonialsPageProps> = ({ onBack }) => {
+const TestimonialsPage: React.FC<TestimonialsPageProps> = ({ onBack, testimonials }) => {
   return (
     <div className="page-container">
       <div className="page-header">
@@ -17,7 +18,7 @@ const TestimonialsPage: React.FC<TestimonialsPageProps> = ({ onBack }) => {
         <h1>Danışan Deneyimleri</h1>
       </div>
       <div className="testimonials-grid">
-        {MOCK_TESTIMONIALS.map(testimonial => (
+        {testimonials.map(testimonial => (
           <div key={testimonial.id} className="testimonial-card">
             <p>"{testimonial.quote}"</p>
             <h4>- {testimonial.author}</h4>

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { Exercise, Message, User } from '../types';
-import { fileToDataURL } from '../utils';
+import { Exercise, Message, User, Patient } from '../types';
+import { fileToDataURL, createWavFileBlob, decodeBase64 } from '../utils';
 
 export const getAiSuggestion = async (
     currentUser: User, 
@@ -134,9 +134,10 @@ export const generateExerciseWithAI = async (
         });
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (base64Audio) {
-            // FIX: Changed mime type to wav, as webm is unlikely for raw audio data.
-            // Note: This likely requires a proper WAV header for browser playback.
-            const audioUrl = `data:audio/wav;base64,${base64Audio}`;
+            const pcmData = decodeBase64(base64Audio);
+            // Gemini TTS returns audio at 24000Hz, 1 channel (mono)
+            const audioBlob = createWavFileBlob(pcmData, 24000, 1);
+            const audioUrl = await fileToDataURL(audioBlob);
             generatedData = { ...generatedData, audioUrl };
             onDataUpdate(generatedData);
         }
@@ -144,4 +145,50 @@ export const generateExerciseWithAI = async (
 
     onStatusUpdate('Oluşturma tamamlandı! Lütfen kontrol edip kaydedin.');
     return generatedData;
+};
+
+
+export const getAiPatientSummary = async (patient: Patient): Promise<string> => {
+    const painJournalString = patient.painJournal.length > 0
+        ? patient.painJournal.map(e => `- ${new Date(e.date).toLocaleDateString('tr-TR')}: Seviye ${e.painLevel}/10. Not: "${e.note}"`).join('\n')
+        : "Danışan ağrı günlüğü tutmamış.";
+
+    const exerciseLogString = Object.keys(patient.exerciseLog).length > 0
+        ? Object.entries(patient.exerciseLog).map(([date, ids]) => `- ${new Date(date).toLocaleDateString('tr-TR')}: ${ids.length} egzersiz tamamlandı.`).join('\n')
+        : "Danışan henüz hiç egzersiz tamamlamadı.";
+
+    const clinicalNotesString = patient.clinicalNotes.length > 0
+        ? patient.clinicalNotes.map(n => `Tarih: ${new Date(n.date).toLocaleDateString('tr-TR')}\nSübjektif: ${n.subjective}\nObjektif: ${n.objective}\nDeğerlendirme: ${n.assessment}\nPlan: ${n.plan}`).join('\n---\n')
+        : "Danışan için klinik not bulunmuyor.";
+    
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+    const prompt = `Sen, bir fizyoterapiste yardımcı olan bir yapay zeka asistanısın. Görevin, bir danışanın verilerini analiz ederek terapisti için kısa ve öz bir ilerleme özeti oluşturmaktır. Veriler, danışanın ağrı günlüğünü, egzersiz kayıtlarını ve terapistin yazdığı klinik notları içermektedir.
+
+**Danışan Verileri:**
+
+*   **Ağrı Günlüğü:**
+${painJournalString}
+
+*   **Egzersiz Kayıtları:**
+${exerciseLogString}
+
+*   **Klinik Notlar (SOAP formatı):**
+${clinicalNotesString}
+
+**Görevin:**
+
+Yukarıdaki verilere dayanarak, Türkçe dilinde ve Markdown formatında bir özet oluştur. Özet şu bölümleri içermelidir:
+*   **Ağrı Eğilimi:** Ağrı günlüğünü analiz et. Ağrı genel olarak artıyor mu, azalıyor mu yoksa dalgalı mı? Yüksek veya düşük ağrı günleriyle ilgili özel notlardan bahset.
+*   **Egzersiz Uyumu:** Egzersiz kayıtlarını analiz et. Danışan egzersizlerini düzenli yapıyor mu? Kayıtlarda herhangi bir düzen veya boşluk var mı?
+*   **Önemli Gözlemler:** Tüm kaynaklardan gelen bilgileri birleştir. Egzersiz tamamlama ile ağrı seviyeleri arasında bir ilişki var mı? Notlardaki danışan geri bildirimleri verilerle örtüşüyor mu? Olası endişeleri veya olumlu gelişmeleri vurgula.
+
+Özeti nesnel ve verilere dayalı tut. Değerlendirmesine yardımcı olmak için bunu doğrudan terapiste sun.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+
+    return response.text;
 };

@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { ClinicalNote, EditableItem, Patient, Therapist, TherapyProgram, Message } from '../types';
 import LineChart from '../components/LineChart';
 import EmptyState from '../components/EmptyState';
+import { getAiPatientSummary } from '../services/aiService';
 
 interface TherapistDashboardProps {
     therapist: Therapist;
@@ -20,11 +21,29 @@ interface TherapistDashboardProps {
 const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, patients, programs, messages, onStartChat, openModal, therapists }) => {
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [detailView, setDetailView] = useState<'progress' | 'notes' | 'chat'>('progress');
+    const [aiSummary, setAiSummary] = useState('');
+    const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const therapistPatients = patients.filter(p => p.therapistId === therapist.id);
     
     const handlePatientSelect = (patient: Patient) => {
         setSelectedPatient(patient);
         setDetailView('progress');
+        setAiSummary(''); // Danışan değiştiğinde özeti sıfırla
+    };
+
+    const handleGenerateSummary = async () => {
+        if (!selectedPatient) return;
+        setIsGeneratingSummary(true);
+        setAiSummary('');
+        try {
+            const summary = await getAiPatientSummary(selectedPatient);
+            setAiSummary(summary);
+        } catch (error) {
+            console.error("Error generating AI summary:", error);
+            setAiSummary("Özet oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+        } finally {
+            setIsGeneratingSummary(false);
+        }
     };
 
     const getOverallProgress = (patient: Patient) => {
@@ -67,6 +86,21 @@ const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, pati
                 
                 {detailView === 'progress' && (
                     <div>
+                        <div className="dashboard-card ai-summary-card">
+                            <h4>Yapay Zeka Raporu</h4>
+                            {isGeneratingSummary && <p className="loading-text">Danışan verileri analiz ediliyor, lütfen bekleyin...</p>}
+                            {aiSummary && !isGeneratingSummary && (
+                                <div className="ai-summary-content">
+                                    <pre>{aiSummary}</pre>
+                                </div>
+                            )}
+                            {!isGeneratingSummary && !aiSummary &&(
+                                <button className="btn btn-primary" onClick={handleGenerateSummary} disabled={isGeneratingSummary}>
+                                    {isGeneratingSummary ? 'Oluşturuluyor...' : 'Danışan Özeti Oluştur'}
+                                </button>
+                            )}
+                        </div>
+
                         <LineChart data={selectedPatient.painJournal} title="Ağrı Günlüğü Analizi" />
                         {patientPrograms.map(program => (
                              <div key={program.id} className="program-section">
@@ -88,7 +122,6 @@ const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, pati
                                 <div key={note.id} className="note-card soap-note-card">
                                     <div className="note-header">
                                         <strong>Tarih: {new Date(note.date).toLocaleDateString('tr-TR')}</strong>
-                                        {/* FIX: Correctly reference the 'therapists' prop to find the therapist's name. */}
                                         <span>Terapist: {therapists.find(t=>t.id === note.therapistId)?.name || 'Bilinmiyor'}</span>
                                     </div>
                                     <div className="soap-field"><strong>S (Subjektif):</strong> <p>{note.subjective}</p></div>
