@@ -4,6 +4,8 @@
 */
 export type UserRole = 'admin' | 'therapist' | 'patient';
 
+export type Theme = 'light' | 'dark' | 'ocean' | 'forest';
+
 export interface User {
     id: string;
     name: string;

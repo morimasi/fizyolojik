@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState } from 'react';
-import { Category, Therapist, TherapyProgram, Testimonial } from '../types';
+import { Category, Therapist, TherapyProgram, Testimonial, Theme } from '../types';
 import ServicesPage from './public/ServicesPage';
 import TherapistsPage from './public/TherapistsPage';
 import TestimonialsPage from './public/TestimonialsPage';
+import ThemeSelector from '../components/ThemeSelector';
 
 interface LandingPageProps {
   onGoToRoleSelection: () => void;
@@ -14,11 +15,13 @@ interface LandingPageProps {
   categories: Category[];
   programs: TherapyProgram[];
   testimonials: Testimonial[];
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 }
 
 type PublicView = 'home' | 'services' | 'therapists' | 'testimonials';
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapists, categories, programs, testimonials }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapists, categories, programs, testimonials, theme, setTheme }) => {
   const [activeView, setActiveView] = useState<PublicView>('home');
 
   const renderContent = () => {
@@ -133,7 +136,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapis
                 <a onClick={() => setActiveView('therapists')} className={activeView === 'therapists' ? 'active' : ''}>Terapistlerimiz</a>
                 <a onClick={() => setActiveView('testimonials')} className={activeView === 'testimonials' ? 'active' : ''}>Yorumlar</a>
             </nav>
-            <button className="btn btn-primary" onClick={onGoToRoleSelection}>Giriş Yap</button>
+            <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                <ThemeSelector theme={theme} setTheme={setTheme} />
+                <button className="btn btn-primary" onClick={onGoToRoleSelection}>Giriş Yap</button>
+            </div>
         </header>
 
         <main>

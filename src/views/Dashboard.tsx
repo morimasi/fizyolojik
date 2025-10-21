@@ -4,13 +4,14 @@
 */
 import React, { useState, useEffect } from 'react';
 // FIX: Added Admin and PainJournalEntry type to import
-import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, Admin } from '../types';
+import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, Admin, Theme } from '../types';
 
 import AdminDashboard from '../panels/AdminDashboard';
 import TherapistDashboard from '../panels/TherapistDashboard';
 import PatientDashboard from '../panels/PatientDashboard';
 import ChatInterface from '../components/ChatInterface';
 import NotificationPanel from '../components/NotificationPanel';
+import ThemeSelector from '../components/ThemeSelector';
 
 
 interface DashboardProps {
@@ -24,6 +25,8 @@ interface DashboardProps {
     therapists: Therapist[];
     messages: Message[];
     notifications: Notification[];
+    theme: Theme;
+    setTheme: (theme: Theme) => void;
     onLogout: () => void;
     onResetData: () => void;
     openModal: (type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote', mode: 'add' | 'edit', item?: EditableItem | null) => void;
@@ -44,7 +47,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = (props) => {
-    const { currentUser, onLogout, notifications, therapists, patients, setActiveChatPartner, activeChatPartner, setNotifications } = props;
+    const { currentUser, onLogout, notifications, therapists, patients, setActiveChatPartner, activeChatPartner, setNotifications, theme, setTheme } = props;
     const [showNotifications, setShowNotifications] = useState(false);
     
     useEffect(() => {
@@ -131,6 +134,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
             <header className="dashboard-header">
                 <div className="logo">Fizyoterapi Asistanı</div>
                 <div className="header-user-info">
+                    <ThemeSelector theme={theme} setTheme={setTheme} />
                     <span>Hoş Geldiniz, <strong>{currentUser.name}</strong></span>
                     <div className="notification-bell" onClick={() => setShowNotifications(!showNotifications)}>
                         🔔
