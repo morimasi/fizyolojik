@@ -2,10 +2,11 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Category, TherapyProgram, Patient, Exercise, Appointment, EditableItem, Therapist } from '../types';
-import { useCountUp } from '../hooks/useCountUp';
 import EmptyState from '../components/EmptyState';
+import LineChart from '../components/LineChart';
+import { getAiAdminSummary } from '../services/aiService';
 
 interface AdminDashboardProps {
     categories: Category[];
@@ -31,75 +32,95 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
     const [adminView, setAdminView] = useState<'summary' | 'services' | 'patients' | 'appointments' | 'exercises' | 'therapists' | 'settings'>('summary');
     
-    const AnimatedStat = ({ value, label }: { value: number; label: string }) => {
-        const count = useCountUp(value, 1500);
-        return (
-            <div className="dashboard-card">
-                <h4>{label}</h4>
-                <p className="summary-stat animated">{count}</p>
-            </div>
-        );
-    };
-    
+    const today = new Date();
+    const oneMonthAgo = new Date(new Date().setDate(today.getDate() - 30));
+    const [startDate, setStartDate] = useState(oneMonthAgo.toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+
+    const [aiSummary, setAiSummary] = useState('');
+    const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+    const filteredData = useMemo(() => {
+        const start = new Date(startDate).getTime();
+        const end = new Date(endDate).getTime() + (24 * 60 * 60 * 1000 - 1); // include the whole end day
+        const filteredAppointments = appointments.filter(a => a.start >= start && a.start <= end);
+        return { filteredAppointments };
+    }, [appointments, startDate, endDate]);
+
+    const handleGenerateSummary = async (stats: any) => {
+        setIsGeneratingSummary(true);
+        setAiSummary('');
+        try {
+            const summary = await getAiAdminSummary(stats);
+            setAiSummary(summary);
+        } catch(error) {
+            console.error("Error generating AI admin summary", error);
+            setAiSummary("Özet oluşturulurken bir hata oluştu.");
+        } finally {
+            setIsGeneratingSummary(false);
+        }
+    }
+
     const renderSummary = () => {
-        const therapistPatientCounts = therapists.map(therapist => ({
-            name: therapist.name,
-            count: patients.filter(p => p.therapistId === therapist.id).length
-        }));
-        const maxPatients = Math.max(...therapistPatientCounts.map(t => t.count), 1);
+        const { filteredAppointments } = filteredData;
+        const completedAppointments = filteredAppointments.filter(a => a.status === 'completed').length;
+        
+        const totalExerciseSlots = patients.reduce((acc, patient) => {
+            const patientPrograms = programs.filter(p => patient.serviceIds.includes(p.id));
+            return acc + patientPrograms.reduce((sum, prog) => sum + prog.exerciseIds.length, 0);
+        }, 0);
 
-        const programPopularity = programs.map(program => ({
-            name: program.name,
-            count: patients.filter(p => p.serviceIds.includes(program.id)).length
-        })).sort((a,b) => b.count - a.count).slice(0, 5);
-        const maxEnrollments = Math.max(...programPopularity.map(p => p.count), 1);
+        const totalCompletedExercises = patients.reduce((acc, patient) => {
+            return acc + Object.values(patient.exerciseLog).flat().length;
+        }, 0);
+        
+        const patientEngagement = totalExerciseSlots > 0 ? (totalCompletedExercises / (totalExerciseSlots * 30)) * 100 : 0; // Simplified
+        
+        const stats = {
+            totalPatients: patients.length,
+            totalTherapists: therapists.length,
+            completedAppointments,
+            patientEngagement,
+        };
+        
+        const appointmentTrendData = filteredAppointments.reduce((acc, app) => {
+            const date = new Date(app.start).toISOString().split('T')[0];
+            acc[date] = (acc[date] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
 
-        const oneMonthAgo = new Date();
-        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-        const completedAppointmentsLastMonth = appointments.filter(a => a.status === 'completed' && a.start > oneMonthAgo.getTime()).length;
+        const chartData = Object.entries(appointmentTrendData)
+            .map(([date, count]) => ({ date: new Date(date).getTime(), painLevel: count, note: `${count} randevu` }))
+            .sort((a,b) => a.date - b.date);
 
         return (
             <div>
-                <h3>Klinik Analitiği</h3>
-                 <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '2rem' }}>
-                    <AnimatedStat value={patients.length} label="Toplam Danışan" />
-                    <AnimatedStat value={therapists.length} label="Toplam Terapist" />
-                    <AnimatedStat value={completedAppointmentsLastMonth} label="Son Ayda Biten Randevular" />
-                </div>
-                 <div className="dashboard-grid admin-summary-grid">
-                    <div className="dashboard-card">
-                        <h4>Terapist Başına Danışan Dağılımı</h4>
-                        {therapists.length > 0 ? (
-                            <div className="bar-chart">
-                                {therapistPatientCounts.map(item => (
-                                    <div className="bar-item" key={item.name}>
-                                        <span className="bar-label">{item.name}</span>
-                                        <div className="bar-wrapper">
-                                            <div className="bar" style={{width: `${(item.count / maxPatients) * 100}%`}}>
-                                                {item.count}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : <p className="empty-list-text">Terapist bulunmuyor.</p>}
+                <div className="analytics-header">
+                    <h3>Klinik Analitiği</h3>
+                    <div className="date-filters">
+                        <label>Tarih Aralığı:</label>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                        <span>-</span>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
                     </div>
-                    <div className="dashboard-card">
-                        <h4>En Popüler Programlar</h4>
-                        {programs.length > 0 ? (
-                            <div className="bar-chart">
-                                {programPopularity.map(item => (
-                                    <div className="bar-item" key={item.name}>
-                                        <span className="bar-label">{item.name}</span>
-                                        <div className="bar-wrapper">
-                                            <div className="bar" style={{width: `${(item.count / maxEnrollments) * 100}%`}}>
-                                                {item.count}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ): <p className="empty-list-text">Program bulunmuyor.</p>}
+                </div>
+                <div className="kpi-grid">
+                    <div className="kpi-card"><h4>Toplam Danışan</h4><p className="kpi-value">{stats.totalPatients}</p></div>
+                    <div className="kpi-card"><h4>Toplam Terapist</h4><p className="kpi-value">{stats.totalTherapists}</p></div>
+                    <div className="kpi-card"><h4>Tamamlanan Randevu</h4><p className="kpi-value">{stats.completedAppointments}</p></div>
+                    <div className="kpi-card"><h4>Danışan Etkileşimi</h4><p className="kpi-value">{stats.patientEngagement.toFixed(1)}%</p></div>
+                </div>
+                 <div className="dashboard-grid">
+                     <div className="dashboard-card">
+                         <LineChart data={chartData} title="Dönem İçi Randevu Eğilimi" />
+                     </div>
+                     <div className="dashboard-card ai-summary-card">
+                        <h4>Yapay Zeka Performans Analizi</h4>
+                        {isGeneratingSummary && <p className="loading-text">Veriler analiz ediliyor...</p>}
+                        {aiSummary && !isGeneratingSummary && <pre className="ai-summary-content">{aiSummary}</pre>}
+                        <button className="btn btn-primary" onClick={() => handleGenerateSummary(stats)} disabled={isGeneratingSummary}>
+                            {isGeneratingSummary ? 'Oluşturuluyor...' : 'Analiz Raporu Oluştur'}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -110,7 +131,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return (
         <>
             <nav className="dashboard-nav">
-                <button onClick={() => setAdminView('summary')} className={`nav-btn ${adminView === 'summary' ? 'active' : ''}`}>Genel Bakış</button>
+                <button onClick={() => setAdminView('summary')} className={`nav-btn ${adminView === 'summary' ? 'active' : ''}`}>Analitik</button>
                 <button onClick={() => setAdminView('services')} className={`nav-btn ${adminView === 'services' ? 'active' : ''}`}>Programlar</button>
                 <button onClick={() => setAdminView('exercises')} className={`nav-btn ${adminView === 'exercises' ? 'active' : ''}`}>Egzersizler</button>
                 <button onClick={() => setAdminView('patients')} className={`nav-btn ${adminView === 'patients' ? 'active' : ''}`}>Danışanlar</button>

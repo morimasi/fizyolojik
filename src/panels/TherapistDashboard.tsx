@@ -3,24 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState } from 'react';
-import { ClinicalNote, EditableItem, Patient, Therapist, TherapyProgram, Message } from '../types';
+import { Appointment, ClinicalNote, EditableItem, Patient, Therapist, TherapyProgram, Message } from '../types';
 import LineChart from '../components/LineChart';
 import EmptyState from '../components/EmptyState';
 import { getAiPatientSummary } from '../services/aiService';
+import TherapistCalendar from '../components/TherapistCalendar';
 
 interface TherapistDashboardProps {
     therapist: Therapist;
     patients: Patient[];
     programs: TherapyProgram[];
+    appointments: Appointment[];
     messages: Message[];
     therapists: Therapist[];
     onStartChat: (patient: Patient) => void;
-    openModal: (type: 'clinicalNote', mode: 'add', item?: EditableItem | null) => void;
+    openModal: (type: 'clinicalNote' | 'appointment', mode: 'add' | 'edit', item?: EditableItem | null) => void;
 }
 
-const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, patients, programs, messages, onStartChat, openModal, therapists }) => {
+const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, patients, programs, appointments, messages, onStartChat, openModal, therapists }) => {
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-    const [detailView, setDetailView] = useState<'progress' | 'notes' | 'chat'>('progress');
+    const [detailView, setDetailView] = useState<'progress' | 'notes' | 'appointments'>('progress');
     const [aiSummary, setAiSummary] = useState('');
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const therapistPatients = patients.filter(p => p.therapistId === therapist.id);
@@ -46,18 +48,6 @@ const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, pati
         }
     };
 
-    const getOverallProgress = (patient: Patient) => {
-        const patientPrograms = programs.filter(p => patient.serviceIds.includes(p.id));
-        if (patientPrograms.length === 0) return 0;
-        const totalExercises = patientPrograms.reduce((sum, prog) => sum + prog.exerciseIds.length, 0);
-        if (totalExercises === 0) return 0;
-        
-        // This is a simplification. A real app would track completion per exercise.
-        // We'll simulate it based on number of logged days.
-        const uniqueLoggedDays = Object.keys(patient.exerciseLog).length;
-        return Math.min(100, (uniqueLoggedDays / 30) * 100); // Assume a 30-day program
-    };
-    
     const hasUnreadMessages = (patientId: string) => {
         return messages.some(m => m.from === patientId && m.to === therapist.id); // simplistic unread logic
     };
@@ -73,14 +63,16 @@ const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, pati
         }
         
         const patientPrograms = programs.filter(p => selectedPatient.serviceIds.includes(p.id));
+        const patientAppointments = appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => b.start - a.start);
 
         return (
             <div className="patient-detail-container">
-                <button className="back-button" onClick={() => setSelectedPatient(null)}>‹ Tüm Danışanlar</button>
+                <button className="back-button" onClick={() => setSelectedPatient(null)}>‹ Danışan Listesi</button>
                 <h2>{selectedPatient.name}</h2>
                 <nav className="detail-nav">
-                    <button onClick={() => setDetailView('progress')} className={`nav-btn ${detailView === 'progress' ? 'active' : ''}`}>Program İlerlemesi</button>
+                    <button onClick={() => setDetailView('progress')} className={`nav-btn ${detailView === 'progress' ? 'active' : ''}`}>İlerleme</button>
                     <button onClick={() => setDetailView('notes')} className={`nav-btn ${detailView === 'notes' ? 'active' : ''}`}>Klinik Notlar</button>
+                    <button onClick={() => setDetailView('appointments')} className={`nav-btn ${detailView === 'appointments' ? 'active' : ''}`}>Randevular</button>
                     <button onClick={() => onStartChat(selectedPatient)} className="nav-btn">Sohbet</button>
                 </nav>
                 
@@ -133,33 +125,55 @@ const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, pati
                         </div>
                     </div>
                 )}
+                 {detailView === 'appointments' && (
+                    <div className="appointment-list">
+                        <div className="admin-actions">
+                           <h4>Randevu Geçmişi</h4>
+                           <button className="btn btn-success" onClick={() => { /* Prefill patient */ }}>+ Yeni Randevu Oluştur</button>
+                        </div>
+                         {patientAppointments.length > 0 ? patientAppointments.map(app => (
+                            <div key={app.id} className={`appointment-card status-${app.status}`}>
+                                <div className="appointment-info">
+                                    <strong>{new Date(app.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</strong>
+                                </div>
+                                <span className={`status-badge status-${app.status}`}>{app.status}</span>
+                            </div>
+                        )) : <EmptyState title="Randevu Bulunmuyor" message="Bu danışan için henüz bir randevu planlanmamış." />}
+                    </div>
+                )}
             </div>
         );
     };
 
-    if (selectedPatient) {
-        return <div className="view-enter">{renderPatientDetails()}</div>
-    }
-
     return (
         <div className="view-enter">
-            <h2>Danışanlarım</h2>
-            <div className="dashboard-grid">
-                {therapistPatients.length > 0 ? therapistPatients.map(p => (
-                    <div key={p.id} className="dashboard-card clickable" onClick={() => handlePatientSelect(p)}>
-                        <div className="patient-card-header">
-                            <h4>{p.name}</h4>
-                            {hasUnreadMessages(p.id) && <span className="unread-indicator">💬</span>}
-                        </div>
-                        <p>Genel İlerleme</p>
-                        <div className="patient-card-progress">
-                             <div className="progress-bar-container">
-                                <div className="progress-bar" style={{width: `${getOverallProgress(p)}%`}}></div>
-                            </div>
+            {selectedPatient ? renderPatientDetails() : (
+                 <div className="therapist-dashboard-layout">
+                    <div>
+                        <h2>Danışanlarım</h2>
+                        <div className="therapist-patient-list">
+                             {therapistPatients.length > 0 ? therapistPatients.map(p => (
+                                <div key={p.id} className="dashboard-card clickable" onClick={() => handlePatientSelect(p)}>
+                                    <div className="patient-card-header">
+                                        <h4>{p.name}</h4>
+                                        {hasUnreadMessages(p.id) && <span className="unread-indicator">💬</span>}
+                                    </div>
+                                    <p>{p.email}</p>
+                                </div>
+                            )) : <EmptyState title="Atanmış Danışanınız Yok" message="Bir yönetici size bir danışan atadığında burada görünecektir."/>}
                         </div>
                     </div>
-                )) : <EmptyState title="Atanmış Danışanınız Yok" message="Bir yönetici size bir danışan atadığında burada görünecektir."/>}
-            </div>
+                    <div>
+                        <h2>Haftalık Takvim</h2>
+                        <TherapistCalendar 
+                            therapist={therapist}
+                            appointments={appointments.filter(a => a.therapistId === therapist.id)}
+                            patients={therapistPatients}
+                            openModal={openModal}
+                        />
+                    </div>
+                 </div>
+            )}
         </div>
     );
 };

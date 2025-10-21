@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { Category, TherapyProgram, Patient, Exercise, Appointment, Therapist, Message, Notification, ClinicalNote, Testimonial } from './types';
+import { Category, TherapyProgram, Patient, Exercise, Appointment, Therapist, Message, Notification, ClinicalNote, Testimonial, FAQItem } from './types';
 
 // IDs
 const therapist1Id = 'therapist-1';
@@ -193,6 +193,14 @@ const MOCK_TESTIMONIALS: Testimonial[] = [
     }
 ];
 
+const MOCK_FAQS: FAQItem[] = [
+    { id: 'faq-1', question: 'Platforma nasıl kayıt olabilirim?', answer: 'Ana sayfadaki "Hemen Başla" butonuna tıklayarak danışan rolünü seçebilir ve adımları takip ederek kolayca kayıt olabilirsiniz.' },
+    { id: 'faq-2', question: 'Terapistimi nasıl seçebilirim?', answer: 'Kayıt olduktan sonra, sistem şikayetlerinize en uygun terapisti size otomatik olarak atayacaktır. Terapistlerimiz sayfasından tüm uzmanlarımızı inceleyebilirsiniz.' },
+    { id: 'faq-3', question: 'Egzersiz programımı nerede görebilirim?', answer: 'Danışan olarak giriş yaptığınızda, "Programlarım" sekmesi altında size atanmış olan tüm egzersiz programlarını ve detaylarını bulabilirsiniz.' },
+    { id: 'faq-4', question: 'Ödemeler güvenli mi?', answer: 'Evet, tüm ödeme işlemleri endüstri standardı şifreleme yöntemleriyle korunmaktadır. Güvenliğiniz bizim için en önemli önceliktir.' },
+    { id: 'faq-5', question: 'Randevumu nasıl iptal edebilirim?', answer: 'Danışan panelinizdeki "Randevularım" bölümünden yaklaşan randevularınızı görebilir ve randevudan en az 24 saat önce iptal etme veya yeniden planlama talebinde bulunabilirsiniz.' }
+];
+
 
 export const MOCK_DATA = {
     therapists: MOCK_THERAPISTS,
@@ -204,4 +212,5 @@ export const MOCK_DATA = {
     messages: MOCK_MESSAGES,
     notifications: MOCK_NOTIFICATIONS,
     testimonials: MOCK_TESTIMONIALS,
+    faqs: MOCK_FAQS,
 };

@@ -70,7 +70,7 @@ const ExerciseCalendar: React.FC<{patient: Patient}> = ({ patient }) => {
 
 
 const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist, programs, exercises, appointments, onStartChat, setAppointments, onCompleteExercise, onAddJournalEntry }) => {
-    const [view, setView] = useState<'summary' | 'programs' | 'journal'>('summary');
+    const [view, setView] = useState<'summary' | 'programs' | 'journal' | 'appointments'>('summary');
     const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string; exerciseId: string } | null>(null);
     const [playingAudio, setPlayingAudio] = useState<string | null>(null);
     const [painLevel, setPainLevel] = useState(5);
@@ -88,39 +88,60 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist,
     };
 
     const patientPrograms = programs.filter(p => patient.serviceIds.includes(p.id));
-    const upcomingAppointments = appointments.filter(a => a.patientId === patient.id && a.status === 'scheduled' && a.start > Date.now()).sort((a, b) => a.start - b.start);
+    const patientAppointments = appointments.filter(a => a.patientId === patient.id).sort((a, b) => b.start - a.start);
     const todayStr = new Date().toISOString().split('T')[0];
     const completedToday = patient.exerciseLog[todayStr] || [];
 
-    const totalExercises = patientPrograms.reduce((acc, p) => acc + p.exerciseIds.length, 0);
-    const overallProgress = totalExercises > 0 ? (completedToday.length / totalExercises) * 100 : 0;
+    // Calculate progress stats
+    const totalCompletedExercises = Object.values(patient.exerciseLog).flat().length;
     
+    const calculateStreak = () => {
+        let streak = 0;
+        const logDates = Object.keys(patient.exerciseLog).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+        if (logDates.length === 0) return 0;
+        
+        let currentDate = new Date();
+        if (!patient.exerciseLog[currentDate.toISOString().split('T')[0]]) {
+            currentDate.setDate(currentDate.getDate() - 1);
+        }
+
+        for (const dateStr of logDates) {
+            if (dateStr === currentDate.toISOString().split('T')[0]) {
+                streak++;
+                currentDate.setDate(currentDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    };
+    const currentStreak = calculateStreak();
+
     return (
         <div className="view-enter">
             <nav className="dashboard-nav">
-                <button onClick={() => setView('summary')} className={`nav-btn ${view === 'summary' ? 'active' : ''}`}>Panelim</button>
+                <button onClick={() => setView('summary')} className={`nav-btn ${view === 'summary' ? 'active' : ''}`}>İlerleme</button>
                 <button onClick={() => setView('programs')} className={`nav-btn ${view === 'programs' ? 'active' : ''}`}>Programlarım</button>
-                <button onClick={() => setView('journal')} className={`nav-btn ${view === 'journal' ? 'active' : ''}`}>Günlüğüm</button>
+                <button onClick={() => setView('journal')} className={`nav-btn ${view === 'journal' ? 'active' : ''}`}>Ağrı Günlüğüm</button>
+                <button onClick={() => setView('appointments')} className={`nav-btn ${view === 'appointments' ? 'active' : ''}`}>Randevularım</button>
             </nav>
 
             {view === 'summary' && (
                  <div className="category-section patient-summary-section">
                     <h3>Hoş Geldiniz, {patient.name}</h3>
-                    <div className="dashboard-grid">
-                        <div className="dashboard-card">
-                            <h4>Bugünkü İlerleme</h4>
-                            <p>Bugün için planlanan egzersizlerin <strong>%{Math.round(overallProgress)}</strong> kadarını tamamladınız.</p>
-                            <div className="progress-bar-container"><div className="progress-bar" style={{ width: `${overallProgress}%` }}></div></div>
+                     <div className="progress-stats-grid">
+                        <div className="stat-card">
+                            <div className="stat-value">{totalCompletedExercises}</div>
+                            <div className="stat-label">Toplam Tamamlanan Egzersiz</div>
                         </div>
-                         <div className="dashboard-card">
-                             <h4>Yaklaşan Randevu</h4>
-                             {upcomingAppointments.length > 0 ? (
-                                <>
-                                 <p><strong>{new Date(upcomingAppointments[0].start).toLocaleDateString('tr-TR', {weekday: 'long', day: 'numeric', month: 'long'})}</strong></p>
-                                 <p>Saat: <strong>{new Date(upcomingAppointments[0].start).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'})}</strong></p>
-                                </>
-                             ) : <p>Yaklaşan randevunuz bulunmuyor.</p>}
-                         </div>
+                         <div className="stat-card">
+                            <div className="stat-value">{currentStreak}</div>
+                            <div className="stat-label">Günlük Egzersiz Serisi</div>
+                        </div>
+                         <div className="stat-card">
+                            <div className="stat-value">{patientPrograms.length}</div>
+                            <div className="stat-label">Aktif Program</div>
+                        </div>
                     </div>
                      <ExerciseCalendar patient={patient} />
                  </div>
@@ -219,6 +240,21 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist,
                             )) : <p className="empty-list-text">Henüz günlük girdiniz yok.</p>}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {view === 'appointments' && (
+                <div className="appointment-list">
+                    <h4>Randevularım</h4>
+                     {patientAppointments.length > 0 ? patientAppointments.map(app => (
+                        <div key={app.id} className={`appointment-card status-${app.status}`}>
+                            <div className="appointment-info">
+                                <strong>{new Date(app.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</strong>
+                                <span>Terapist: {therapist?.name || 'Bilinmiyor'}</span>
+                            </div>
+                            <span className={`status-badge status-${app.status}`}>{app.status === 'scheduled' ? 'Planlandı' : app.status === 'completed' ? 'Tamamlandı' : 'İptal Edildi'}</span>
+                        </div>
+                    )) : <EmptyState title="Randevunuz Bulunmuyor" message="Henüz planlanmış veya geçmiş bir randevunuz yok." />}
                 </div>
             )}
             

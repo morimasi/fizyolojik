@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { Exercise, Message, User, Patient } from '../types';
+import { Exercise, FAQItem, Message, User, Patient } from '../types';
 import { fileToDataURL, createWavFileBlob, decodeBase64 } from '../utils';
 
 export const getAiSuggestion = async (
@@ -184,6 +184,63 @@ Yukarıdaki verilere dayanarak, Türkçe dilinde ve Markdown formatında bir öz
 *   **Önemli Gözlemler:** Tüm kaynaklardan gelen bilgileri birleştir. Egzersiz tamamlama ile ağrı seviyeleri arasında bir ilişki var mı? Notlardaki danışan geri bildirimleri verilerle örtüşüyor mu? Olası endişeleri veya olumlu gelişmeleri vurgula.
 
 Özeti nesnel ve verilere dayalı tut. Değerlendirmesine yardımcı olmak için bunu doğrudan terapiste sun.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+
+    return response.text;
+};
+
+export const getAiAdminSummary = async (stats: {
+    totalPatients: number;
+    totalTherapists: number;
+    completedAppointments: number;
+    patientEngagement: number;
+}): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+    const prompt = `Sen bir sağlık yöneticisine veri analizi sunan bir yapay zeka asistanısın. Aşağıda bir fizyoterapi kliniğinin belirli bir dönemdeki performans metrikleri bulunmaktadır:
+- Toplam Aktif Danışan: ${stats.totalPatients}
+- Toplam Terapist: ${stats.totalTherapists}
+- Tamamlanan Randevu Sayısı: ${stats.completedAppointments}
+- Ortalama Danışan Etkileşimi (Egzersiz Tamamlama Oranı): %${stats.patientEngagement.toFixed(1)}
+
+Bu verilere dayanarak, klinik yöneticisi için kısa, profesyonel ve eyleme geçirilebilir bir özet oluştur. Özet, Markdown formatında olmalı ve şu bölümleri içermelidir:
+1.  **Genel Performans:** Rakamların genel bir değerlendirmesi.
+2.  **Güçlü Yönler:** Özellikle iyi olan metrikleri vurgula.
+3.  **Geliştirilebilecek Alanlar:** Düşük görünen veya dikkat edilmesi gereken metrikler hakkında önerilerde bulun. Örneğin, etkileşim oranı düşükse ne yapılabilir?
+
+Yanıtı doğrudan yöneticiye hitap eder gibi yaz ve Türkçe olsun.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    return response.text;
+};
+
+export const getFaqAnswer = async (
+    userQuestion: string,
+    faqs: FAQItem[]
+): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+    const faqContext = faqs.map(faq => `Soru: ${faq.question}\nCevap: ${faq.answer}`).join('\n\n');
+
+    const prompt = `Sen bir müşteri hizmetleri yapay zekasısın. Aşağıda bir Sıkça Sorulan Sorular (SSS) listesi ve bir kullanıcının sorusu bulunmaktadır.
+---
+**SSS LİSTESİ:**
+${faqContext}
+---
+**KULLANICI SORUSU:** "${userQuestion}"
+
+Görevin: Kullanıcının sorusuna en uygun cevabı SSS listesinden bulup döndürmektir.
+- Eğer doğrudan eşleşen bir soru varsa, o sorunun cevabını ver.
+- Eğer doğrudan eşleşme yoksa, anlamsal olarak en yakın sorunun cevabını ver.
+- Eğer hiçbir soru kullanıcının sorusuyla ilgili değilse, "Üzgünüm, sorunuzla ilgili bir cevap bulamadım. Lütfen daha farklı bir şekilde sormayı deneyin veya destek ekibimizle iletişime geçin." yanıtını ver.
+Sadece cevabı döndür, ek bir açıklama yapma.`;
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',

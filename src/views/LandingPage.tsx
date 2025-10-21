@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState } from 'react';
-import { Category, Therapist, TherapyProgram, Testimonial, Theme } from '../types';
+import { Category, Therapist, TherapyProgram, Testimonial, Theme, FAQItem } from '../types';
 import ServicesPage from './public/ServicesPage';
 import TherapistsPage from './public/TherapistsPage';
 import TestimonialsPage from './public/TestimonialsPage';
 import ThemeSelector from '../components/ThemeSelector';
+import { getFaqAnswer } from '../services/aiService';
 
 interface LandingPageProps {
   onGoToRoleSelection: () => void;
@@ -15,14 +16,34 @@ interface LandingPageProps {
   categories: Category[];
   programs: TherapyProgram[];
   testimonials: Testimonial[];
+  faqs: FAQItem[];
   theme: Theme;
   setTheme: (theme: Theme) => void;
 }
 
 type PublicView = 'home' | 'services' | 'therapists' | 'testimonials';
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapists, categories, programs, testimonials, theme, setTheme }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapists, categories, programs, testimonials, faqs, theme, setTheme }) => {
   const [activeView, setActiveView] = useState<PublicView>('home');
+  const [faqQuery, setFaqQuery] = useState('');
+  const [faqAnswer, setFaqAnswer] = useState('Sormak istediğiniz bir konu var mı? Örneğin, "Randevumu nasıl iptal ederim?"');
+  const [isFaqLoading, setIsFaqLoading] = useState(false);
+
+  const handleFaqSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!faqQuery.trim()) return;
+      setIsFaqLoading(true);
+      setFaqAnswer('');
+      try {
+          const answer = await getFaqAnswer(faqQuery, faqs);
+          setFaqAnswer(answer);
+      } catch (error) {
+          console.error("Error getting FAQ answer", error);
+          setFaqAnswer("Üzgünüm, şu an bir sorun oluştu. Lütfen sonra tekrar deneyin.");
+      } finally {
+          setIsFaqLoading(false);
+      }
+  };
 
   const renderContent = () => {
     switch (activeView) {
@@ -120,6 +141,26 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapis
                     ))}
                 </div>
             </section>
+
+            <section id="faq" className="content-section">
+                <h2 className="section-title">Merak Edilenler</h2>
+                <div className="faq-container">
+                    <div className="faq-form">
+                        <h3>Aklınıza takılan bir soru mu var?</h3>
+                        <p>Yapay zeka asistanımıza sorarak hızlıca yanıt alabilirsiniz.</p>
+                        <form onSubmit={handleFaqSubmit}>
+                            <div className="faq-input-group">
+                                <input type="text" value={faqQuery} onChange={e => setFaqQuery(e.target.value)} placeholder="Sorunuzu buraya yazın..." />
+                                <button type="submit" className="btn btn-primary" disabled={isFaqLoading}>{isFaqLoading ? '...' : 'Sor'}</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div className="faq-answer">
+                        <h4>Yapay Zeka Yanıtı:</h4>
+                        {isFaqLoading ? <p className="loading-text">Cevap aranıyor...</p> : <p>{faqAnswer}</p>}
+                    </div>
+                </div>
+            </section>
         </>
         );
     }
@@ -135,6 +176,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapis
                 <a onClick={() => setActiveView('services')} className={activeView === 'services' ? 'active' : ''}>Hizmetlerimiz</a>
                 <a onClick={() => setActiveView('therapists')} className={activeView === 'therapists' ? 'active' : ''}>Terapistlerimiz</a>
                 <a onClick={() => setActiveView('testimonials')} className={activeView === 'testimonials' ? 'active' : ''}>Yorumlar</a>
+                 <a href="#faq">SSS</a>
             </nav>
             <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
                 <ThemeSelector theme={theme} setTheme={setTheme} />

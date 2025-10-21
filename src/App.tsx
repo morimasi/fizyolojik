@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { MOCK_DATA } from './data';
 import { usePersistentState } from './hooks/usePersistentState';
 // FIX: Added Admin and PainJournalEntry to import
-import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, UserRole, Admin, Testimonial, Theme } from './types';
+import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, UserRole, Admin, Testimonial, Theme, FAQItem } from './types';
 
 import LandingPage from './views/LandingPage';
 import RoleSelection from './views/RoleSelection';
@@ -33,11 +33,12 @@ const App: React.FC = () => {
     const [messages, setMessages] = usePersistentState<Message[]>('messages', MOCK_DATA.messages);
     const [notifications, setNotifications] = usePersistentState<Notification[]>('notifications', MOCK_DATA.notifications);
     const [testimonials, setTestimonials] = usePersistentState<Testimonial[]>('testimonials', MOCK_DATA.testimonials);
+    const [faqs, setFaqs] = usePersistentState<FAQItem[]>('faqs', MOCK_DATA.faqs);
     const [theme, setTheme] = usePersistentState<Theme>('theme', 'light');
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
-    const [modalType, setModalType] = useState<'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | null>(null);
+    const [modalType, setModalType] = useState<'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | 'appointment' | null>(null);
     const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
 
     useEffect(() => {
@@ -45,7 +46,7 @@ const App: React.FC = () => {
     }, [theme]);
 
 
-    const openModal = (type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote', mode: 'add' | 'edit', item?: EditableItem | null) => {
+    const openModal = (type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | 'appointment', mode: 'add' | 'edit', item?: EditableItem | null) => {
         setModalType(type);
         setModalMode(mode);
         setEditingItem(item || null);
@@ -191,7 +192,7 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch(view) {
             case 'landing':
-                return <LandingPage onGoToRoleSelection={() => setView('roleSelection')} therapists={therapists} categories={categories} programs={programs} testimonials={testimonials} theme={theme} setTheme={setTheme} />;
+                return <LandingPage onGoToRoleSelection={() => setView('roleSelection')} therapists={therapists} categories={categories} programs={programs} testimonials={testimonials} faqs={faqs} theme={theme} setTheme={setTheme} />;
             case 'roleSelection':
                 return <RoleSelection onRoleSelect={handleRoleSelect} onBackToLanding={() => setView('landing')} />;
             case 'login':

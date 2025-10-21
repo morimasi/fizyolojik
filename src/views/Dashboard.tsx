@@ -29,7 +29,7 @@ interface DashboardProps {
     setTheme: (theme: Theme) => void;
     onLogout: () => void;
     onResetData: () => void;
-    openModal: (type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote', mode: 'add' | 'edit', item?: EditableItem | null) => void;
+    openModal: (type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | 'appointment', mode: 'add' | 'edit', item?: EditableItem | null) => void;
     onSendMessage: (text: string, file?: File | null) => void;
     activeChatPartner: Patient | Therapist | null;
     setActiveChatPartner: React.Dispatch<React.SetStateAction<Patient | Therapist | null>>;
@@ -101,11 +101,11 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
 
     const renderDashboard = () => {
         if ('patientIds' in currentUser) { // Therapist
-            // FIX: Passed missing 'messages' and 'therapists' props.
             return <TherapistDashboard 
                 therapist={currentUser} 
                 patients={props.patients}
                 programs={props.programs}
+                appointments={props.appointments}
                 messages={props.messages}
                 therapists={props.therapists}
                 onStartChat={handleStartChat}

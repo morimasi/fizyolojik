@@ -111,5 +111,11 @@ export interface Testimonial {
     author: string;
 }
 
+export interface FAQItem {
+    id: string;
+    question: string;
+    answer: string;
+}
+
 
 export type EditableItem = Category | TherapyProgram | Patient | Exercise | Therapist | { categoryId: string } | { patientId: string } | null;
