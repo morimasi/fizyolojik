@@ -2,26 +2,36 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React from 'react';
+import React, { useState } from 'react';
+import { Category, Therapist, TherapyProgram } from '../types';
+import ServicesPage from './public/ServicesPage';
+import TherapistsPage from './public/TherapistsPage';
+import TestimonialsPage from './public/TestimonialsPage';
 
 interface LandingPageProps {
   onGoToRoleSelection: () => void;
+  therapists: Therapist[];
+  categories: Category[];
+  programs: TherapyProgram[];
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection }) => {
-  return (
-    <div className="landing-container">
-        <header className="landing-header">
-            <div className="logo">Fizyoterapi Asistanı</div>
-            <nav className="nav-links">
-                <a href="#hero">Ana Sayfa</a>
-                <a href="#features">Hizmetlerimiz</a>
-                <a href="#how-it-works">Nasıl Çalışır?</a>
-            </nav>
-            <button className="btn btn-primary" onClick={onGoToRoleSelection}>Giriş Yap</button>
-        </header>
+type PublicView = 'home' | 'services' | 'therapists' | 'testimonials';
 
-        <main>
+const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection, therapists, categories, programs }) => {
+  const [activeView, setActiveView] = useState<PublicView>('home');
+
+  const renderContent = () => {
+    switch (activeView) {
+      case 'services':
+        return <ServicesPage categories={categories} programs={programs} onBack={() => setActiveView('home')} />;
+      case 'therapists':
+        return <TherapistsPage therapists={therapists} onBack={() => setActiveView('home')} />;
+      case 'testimonials':
+        return <TestimonialsPage onBack={() => setActiveView('home')} />;
+      case 'home':
+      default:
+        return (
+           <>
             <section id="hero" className="hero-section">
                 <div className="hero-content">
                     <h1 className="hero-title">Sağlığınıza Giden Yolda <br /> Dijital Destekçiniz</h1>
@@ -29,28 +39,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection }) => {
                     <button className="btn btn-primary btn-large" onClick={onGoToRoleSelection}>Hemen Başla</button>
                 </div>
             </section>
-
-            <section id="features" className="content-section">
-                <h2 className="section-title">Neden Fizyoterapi Asistanı?</h2>
+            
+            <section id="features-summary" className="content-section">
+                <h2 className="section-title">Neden Biz?</h2>
                 <div className="features-grid">
                     <div className="feature-card">
-                        <div className="feature-icon"> Personalized </div>
-                        <h3>Kişiselleştirilmiş Terapi</h3>
-                        <p>Size özel hazırlanan egzersiz ve tedavi programları ile hedeflerinize daha hızlı ulaşın.</p>
+                        <div className="feature-icon">👩‍⚕️</div>
+                        <h3>Uzman Terapistler</h3>
+                        <p>Alanında deneyimli, lisanslı fizyoterapist kadromuzla kişiye özel tedavi planları sunuyoruz.</p>
                     </div>
-                    <div className="feature-card">
-                        <div className="feature-icon"> Support </div>
-                        <h3>Uzman Terapist Desteği</h3>
-                        <p>Alanında uzman fizyoterapistlerimizle güvenli mesajlaşma üzerinden sürekli iletişimde kalın.</p>
+                     <div className="feature-card">
+                        <div className="feature-icon">🤖</div>
+                        <h3>Yapay Zeka Desteği</h3>
+                        <p>Egzersiz programlarınız, yapay zeka tarafından analiz edilerek en verimli hale getirilir.</p>
                     </div>
-                    <div className="feature-card">
-                        <div className="feature-icon"> AI </div>
-                        <h3>Yapay Zeka Destekli İletişim</h3>
-                        <p>Terapistlerimiz, sorularınıza daha hızlı ve etkili yanıtlar vermek için yapay zeka önerilerinden faydalanır.</p>
+                     <div className="feature-card">
+                        <div className="feature-icon">📱</div>
+                        <h3>Her Yerden Erişim</h3>
+                        <p>Tedavi programınıza ve terapistinize istediğiniz zaman, istediğiniz yerden ulaşın.</p>
                     </div>
                 </div>
             </section>
-            
+
             <section id="how-it-works" className="content-section">
               <h2 className="section-title">Nasıl Çalışır?</h2>
               <div className="steps-container">
@@ -73,6 +83,27 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToRoleSelection }) => {
                   </div>
               </div>
             </section>
+        </>
+        );
+    }
+  };
+
+
+  return (
+    <div className="landing-container">
+        <header className="landing-header">
+            <div className="logo" onClick={() => setActiveView('home')} style={{cursor: 'pointer'}}>Fizyoterapi Asistanı</div>
+            <nav className="nav-links">
+                <a onClick={() => setActiveView('home')} className={activeView === 'home' ? 'active' : ''}>Ana Sayfa</a>
+                <a onClick={() => setActiveView('services')} className={activeView === 'services' ? 'active' : ''}>Hizmetlerimiz</a>
+                <a onClick={() => setActiveView('therapists')} className={activeView === 'therapists' ? 'active' : ''}>Terapistlerimiz</a>
+                <a onClick={() => setActiveView('testimonials')} className={activeView === 'testimonials' ? 'active' : ''}>Yorumlar</a>
+            </nav>
+            <button className="btn btn-primary" onClick={onGoToRoleSelection}>Giriş Yap</button>
+        </header>
+
+        <main>
+          {renderContent()}
         </main>
 
         <footer className="landing-footer">

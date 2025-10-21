@@ -2,67 +2,205 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { Category, Exercise, TherapyProgram, Therapist, Patient, Message, ClinicalNote, Appointment, Notification } from './types';
+import { Category, TherapyProgram, Patient, Exercise, Appointment, Therapist, Message, Notification, ClinicalNote, Testimonial } from './types';
 
-// --- MOCK DATA ---
-export const MOCK_CATEGORIES: Category[] = [
-  { id: 'cat1', name: 'Ameliyat Sonrası Rehabilitasyon' },
-  { id: 'cat2', name: 'Sporcu Sakatlıkları' },
-  { id: 'cat3', name: 'Nörolojik Rehabilitasyon' },
+// IDs
+const therapist1Id = 'therapist-1';
+const therapist2Id = 'therapist-2';
+const patient1Id = 'patient-1';
+const patient2Id = 'patient-2';
+const patient3Id = 'patient-3';
+const patient4Id = 'patient-4';
+const category1Id = 'cat-1';
+const category2Id = 'cat-2';
+const program1Id = 'prog-1';
+const program2Id = 'prog-2';
+const program3Id = 'prog-3';
+const exercise1Id = 'ex-1';
+const exercise2Id = 'ex-2';
+const exercise3Id = 'ex-3';
+const exercise4Id = 'ex-4';
+
+const MOCK_THERAPISTS: Therapist[] = [
+    {
+        id: therapist1Id,
+        name: 'Dr. Elif Yılmaz',
+        email: 'elif@terapi.com',
+        patientIds: [patient1Id, patient2Id],
+        profileImageUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/therapist1.png',
+        bio: 'Spor yaralanmaları ve ortopedik rehabilitasyon konusunda uzmanlaşmış deneyimli fizyoterapist.',
+    },
+    {
+        id: therapist2Id,
+        name: 'Dr. Ahmet Kaya',
+        email: 'ahmet@terapi.com',
+        patientIds: [patient3Id, patient4Id],
+        profileImageUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/therapist2.png',
+        bio: 'Nörolojik rehabilitasyon ve kronik ağrı yönetimi alanlarında 10 yıllık tecrübeye sahip.',
+    }
 ];
 
-export const MOCK_EXERCISES: Exercise[] = [
-    { id: 'ex1', name: 'Diz Bükme ve Düzleştirme', description: 'Yatak kenarında oturarak bacağınızı yavaşça bükün ve düzleştirin.', sets: 3, reps: 15, videoUrl: 'https://storage.googleapis.com/assets.aistudio.google.com/Llama_Yoga.mp4' },
-    { id: 'ex2', name: 'Topuk Kaydırma', description: 'Sırt üstü yatarken, topuğunuzu yatak üzerinde kalçanıza doğru yavaşça kaydırın.', sets: 3, reps: 15 },
-    { id: 'ex3', name: 'Bacak Kaldırma', description: 'Sırt üstü yatarken, bir bacağınızı dizinizi bükmeden yavaşça yukarı kaldırın.', sets: 3, reps: 10, videoUrl: 'https://storage.googleapis.com/assets.aistudio.google.com/Llama_Yoga.mp4' },
-    { id: 'ex4', name: 'Bilek Esnetme', description: 'Bir sandalyede otururken, etkilenen kolunuzu öne uzatın ve diğer elinizle bileğinizi yavaşça esnetin.', sets: 4, reps: 10 },
-    { id: 'ex5', name: 'Statik Kuadriseps Egzersizi', description: 'Sırt üstü yatarken dizinizin altına rulo haline getirilmiş bir havlu koyun ve dizi aşağı bastırarak 5 saniye kasılı tutun.', sets: 3, reps: 20 },
-    { id: 'ex6', name: 'Omuz Makarası', description: 'Bir kapıya takılan makara sistemi ile kollarınızı yavaşça yukarı ve aşağı hareket ettirin.', sets: 3, reps: 15 },
+const MOCK_CLINICAL_NOTES: ClinicalNote[] = [
+    {
+        id: 'note-1',
+        therapistId: therapist1Id,
+        date: new Date('2024-05-22').getTime(),
+        subjective: 'Danışan, dizinde özellikle sabahları artan bir ağrı olduğunu ve merdiven çıkarken zorlandığını belirtiyor.',
+        objective: 'Diz eklem hareket açıklığında hafif kısıtlılık, 10 derece fleksiyon kaybı. Palpasyonda medial menisküs hattında hassasiyet.',
+        assessment: 'Menisküs irritasyonu ile uyumlu bulgular. Danışanın egzersiz programına uyumu iyi, ancak ağrı yönetimi stratejileri eklenmeli.',
+        plan: 'Ağrı yönetimi için soğuk uygulama önerildi. Egzersiz programına quadriseps güçlendirme odaklı yeni hareketler eklenecek. Bir sonraki seans 1 hafta sonra.',
+    }
 ];
 
-export const MOCK_PROGRAMS: TherapyProgram[] = [
-  { id: 's1', categoryId: 'cat1', name: 'Diz Protezi Rehabilitasyonu', description: 'Diz protezi ameliyatı sonrası güç ve hareket kabiliyetini geri kazandırma programı.', exerciseIds: ['ex1', 'ex2', 'ex5'] },
-  { id: 's2', categoryId: 'cat1', name: 'Kalça Protezi Rehabilitasyonu', description: 'Kalça protezi sonrası hastaların günlük yaşam aktivitelerine dönmesini hızlandıran program.', exerciseIds: ['ex2', 'ex3'] },
-  { id: 's3', categoryId: 'cat2', name: 'Menisküs Yırtığı Tedavisi', description: 'Sporcularda sık görülen menisküs yırtıkları için cerrahi olmayan tedavi ve güçlendirme.', exerciseIds: ['ex1', 'ex5'] },
-  { id: 's4', categoryId: 'cat2', name: 'Tenisçi Dirseği Tedavisi', description: 'Tekrarlayan kol hareketlerine bağlı ağrı ve hassasiyet için özel egzersizler.', exerciseIds: ['ex4'] },
-  { id: 's5', categoryId: 'cat3', name: 'İnme Sonrası Fizik Tedavi', description: 'İnme geçirmiş hastaların motor becerilerini yeniden kazanmalarına yönelik kapsamlı rehabilitasyon.', exerciseIds: ['ex6'] },
+
+const MOCK_PATIENTS: Patient[] = [
+    {
+        id: patient1Id,
+        name: 'Ayşe Demir',
+        email: 'ayse@mail.com',
+        therapistId: therapist1Id,
+        serviceIds: [program1Id],
+        painJournal: [
+            { date: new Date('2024-05-20').getTime(), painLevel: 7, note: 'Sabah kalktığımda dizim çok ağrıyordu.' },
+            { date: new Date('2024-05-21').getTime(), painLevel: 6, note: 'Egzersiz sonrası biraz rahatladı.' },
+            { date: new Date('2024-05-22').getTime(), painLevel: 6, note: 'Bugün daha iyi hissediyorum.' },
+            { date: new Date('2024-05-23').getTime(), painLevel: 5, note: 'Yürüyüş yapabildim.' },
+        ],
+        exerciseLog: {
+            '2024-05-21': [exercise1Id],
+            '2024-05-22': [exercise1Id, exercise2Id],
+            '2024-05-23': [exercise1Id, exercise2Id],
+        },
+        clinicalNotes: MOCK_CLINICAL_NOTES,
+    },
+    {
+        id: patient2Id,
+        name: 'Mehmet Öztürk',
+        email: 'mehmet@mail.com',
+        therapistId: therapist1Id,
+        serviceIds: [program2Id],
+        painJournal: [],
+        exerciseLog: {},
+        clinicalNotes: [],
+    },
+    {
+        id: patient3Id,
+        name: 'Fatma Şahin',
+        email: 'fatma@mail.com',
+        therapistId: therapist2Id,
+        serviceIds: [program3Id],
+        painJournal: [
+            { date: new Date('2024-05-19').getTime(), painLevel: 8, note: 'Bel ağrım çok şiddetliydi.' },
+            { date: new Date('2024-05-21').getTime(), painLevel: 7, note: 'Isı uygulaması iyi geldi.' },
+        ],
+        exerciseLog: {},
+        clinicalNotes: [],
+    },
+     {
+        id: patient4Id,
+        name: 'Mustafa Can',
+        email: 'mustafa@mail.com',
+        therapistId: therapist2Id,
+        serviceIds: [program1Id, program2Id],
+        painJournal: [],
+        exerciseLog: {},
+        clinicalNotes: [],
+    },
 ];
 
-export const MOCK_THERAPISTS: Therapist[] = [
-  { id: 't1', name: 'Zeynep Kaya', email: 'zeynep@clinic.com', password: '1234', patientIds: ['p1', 'p2'], availability: [
-      { day: 1, slots: [{ start: '09:00', end: '12:00'}, { start: '13:00', end: '17:00'}] }, // Pazartesi
-      { day: 3, slots: [{ start: '10:00', end: '13:00'}] }, // Çarşamba
-      { day: 5, slots: [{ start: '09:00', end: '16:00'}] }, // Cuma
-  ]},
-  { id: 't2', name: 'Ahmet Çelik', email: 'ahmet@clinic.com', password: '1234', patientIds: [], availability: [] },
+const MOCK_CATEGORIES: Category[] = [
+    { id: category1Id, name: 'Ortopedik Rehabilitasyon' },
+    { id: category2Id, name: 'Nörolojik Rehabilitasyon' }
 ];
 
-export const MOCK_PATIENTS: Patient[] = [
-  { id: 'p1', name: 'Ayşe Yılmaz', email: 'ayse@example.com', password: '1234', therapistId: 't1', serviceIds: ['s1', 's4'], progress: { 'ex1': 'completed', 'ex2': 'todo', 'ex5': 'todo', 'ex4': 'todo' } },
-  { id: 'p2', name: 'Mehmet Öztürk', email: 'mehmet@example.com', password: '1234', therapistId: 't1', serviceIds: ['s3'], progress: { 'ex1': 'todo', 'ex5': 'todo' } },
+const MOCK_EXERCISES: Exercise[] = [
+    {
+        id: exercise1Id,
+        name: 'Diz Ekstansiyonu (Oturarak)',
+        description: 'Bir sandalyeye oturun ve sırtınızı dik tutun. Bir bacağınızı yavaşça yukarı doğru kaldırarak düzleştirin, birkaç saniye bu pozisyonda kalın ve yavaşça indirin. Hareketi diğer bacağınızla tekrarlayın.',
+        sets: 3, reps: 10,
+        imageUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/exercise1.png',
+        videoUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/exercise_video.mp4'
+    },
+    {
+        id: exercise2Id,
+        name: 'Köprü Kurma',
+        description: 'Sırt üstü uzanın, dizlerinizi bükün ve ayaklarınızı kalça genişliğinde açarak yere basın. Kalçanızı yavaşça yukarı kaldırarak vücudunuzla omuzlarınızdan dizlerinize kadar düz bir çizgi oluşturun. Tepe noktada birkaç saniye bekleyin ve yavaşça başlangıç pozisyonuna dönün.',
+        sets: 3, reps: 12,
+        imageUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/exercise2.png',
+    },
+    {
+        id: exercise3Id,
+        name: 'Kedi-Deve Esnemesi',
+        description: 'Elleriniz ve dizleriniz üzerinde dört ayak pozisyonunda başlayın. Nefes alırken sırtınızı yukarı doğru yuvarlayarak kamburlaştırın (kedi). Nefes verirken sırtınızı aşağı doğru indirerek çukurlaştırın (deve). Hareketi yavaş ve kontrollü bir şekilde tekrarlayın.',
+        sets: 2, reps: 15,
+        imageUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/exercise3.png',
+    },
+    {
+        id: exercise4Id,
+        name: 'Omuz Fleksiyonu (Duvarda)',
+        description: 'Sırtınız duvara dönük şekilde ayakta durun. Kollarınızı düz bir şekilde omuz hizasında yanlara doğru açın. Yavaşça kollarınızı yukarı doğru kaydırarak başınızın üzerine getirin ve başlangıç pozisyonuna dönün.',
+        sets: 3, reps: 10,
+        imageUrl: 'https://storage.googleapis.com/gemini-ui-params/fpt/exercise4.png',
+    }
 ];
 
-export const MOCK_MESSAGES: Message[] = [
-    { id: 'm1', from: 'p1', to: 't1', text: 'Merhaba Zeynep Hanım, dizimdeki ağrı son egzersizden sonra biraz arttı. Bu normal mi?', timestamp: Date.now() - 200000 },
-    { id: 'm2', from: 't1', to: 'p1', text: 'Merhaba Ayşe Hanım. Egzersiz sonrası hafif bir hassasiyet beklenen bir durum olabilir. Ancak ağrınız keskin veya sürekli ise durumu daha detaylı değerlendirmemiz gerekir. Ağrıyı 1-10 arasında derecelendirir misiniz?', timestamp: Date.now() - 100000 },
-    { id: 'm3', from: 'p1', to: 't1', text: 'Yaklaşık 4 gibi diyebilirim. Özellikle merdiven çıkarken hissediyorum.', timestamp: Date.now() - 50000 },
+const MOCK_PROGRAMS: TherapyProgram[] = [
+    { id: program1Id, name: 'Diz Güçlendirme Programı', description: 'Diz ameliyatı sonrası güçlenme ve hareket kabiliyetini artırma odaklı program.', categoryId: category1Id, exerciseIds: [exercise1Id, exercise2Id] },
+    { id: program2Id, name: 'Omuz Hareket Programı', description: 'Donuk omuz sendromu için esneklik ve hareket açıklığını geliştirmeye yönelik egzersizler.', categoryId: category1Id, exerciseIds: [exercise4Id] },
+    { id: program3Id, name: 'Bel Ağrısı Yönetimi', description: 'Kronik bel ağrısını azaltmak ve omurga esnekliğini artırmak için temel egzersizler.', categoryId: category2Id, exerciseIds: [exercise2Id, exercise3Id] }
 ];
 
-export const MOCK_NOTES: ClinicalNote[] = [
-    { id: 'cn1', patientId: 'p1', therapistId: 't1', text: 'Danışan, ilk hafta egzersizlerine düzenli olarak devam ettiğini belirtti. Merdiven çıkarken hafif ağrı şikayeti devam ediyor. Statik kuadriseps egzersizine odaklanması önerildi.', timestamp: Date.now() - 300000 },
+const now = new Date();
+const MOCK_APPOINTMENTS: Appointment[] = [
+    { id: 'app-1', patientId: patient1Id, therapistId: therapist1Id, start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 10, 0).getTime(), end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 10, 30).getTime(), status: 'scheduled' },
+    { id: 'app-2', patientId: patient3Id, therapistId: therapist2Id, start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3, 14, 0).getTime(), end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3, 14, 30).getTime(), status: 'scheduled' },
+    { id: 'app-3', patientId: patient1Id, therapistId: therapist1Id, start: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5, 11, 0).getTime(), end: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5, 11, 30).getTime(), status: 'completed' },
+    { id: 'app-4', patientId: patient2Id, therapistId: therapist1Id, start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0).getTime(), end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30).getTime(), status: 'scheduled' },
+
 ];
 
-export const getTomorrowAt = (hour: number) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(hour, 0, 0, 0);
-    return tomorrow.getTime();
-}
-
-export const MOCK_APPOINTMENTS: Appointment[] = [
-    { id: 'app1', patientId: 'p1', therapistId: 't1', start: getTomorrowAt(10), end: getTomorrowAt(10) + 30 * 60 * 1000, status: 'scheduled' }
+const MOCK_MESSAGES: Message[] = [
+    { id: 'msg-1', from: patient1Id, to: therapist1Id, text: 'Merhaba Elif Hanım, diz egzersizlerini yaparken biraz zorlanıyorum, normal midir?', timestamp: new Date().getTime() - 86400000 * 2 },
+    { id: 'msg-2', from: therapist1Id, to: patient1Id, text: 'Merhaba Ayşe Hanım, başlangıçta hafif bir zorlanma normaldir. Ağrınız artarsa lütfen hemen bildirin. Bir sonraki seansımızda hareket formunuzu tekrar kontrol edelim.', timestamp: new Date().getTime() - 86400000 * 1.9 },
 ];
 
-export const MOCK_NOTIFICATIONS: Notification[] = [
-    { id: 'n1', userId: 't1', text: "Mehmet Öztürk'ten yeni bir mesajınız var.", timestamp: Date.now() - 600000, read: true, link: { view: 'patient-chat', contextId: 'p2'} },
+const MOCK_NOTIFICATIONS: Notification[] = [
+    { id: 'notif-1', userId: patient1Id, text: 'Yaklaşan randevunuz: Dr. Elif Yılmaz ile 2 gün sonra saat 10:00\'da.', timestamp: new Date().getTime() - 3600000, read: true },
+    { id: 'notif-2', userId: therapist1Id, text: 'Ayşe Demir yeni bir mesaj gönderdi.', timestamp: new Date().getTime() - 86400000 * 2, read: false }
 ];
+
+export const MOCK_TESTIMONIALS: Testimonial[] = [
+    {
+        id: 'test-1',
+        quote: "Bu platform sayesinde diz ameliyatım sonrası iyileşme sürecim inanılmaz hızlandı. Terapistimle sürekli iletişimde olmak bana çok güven verdi. Egzersiz takvimi özelliği ise motivasyonumu hep yüksek tuttu.",
+        author: 'Ayşe Y.'
+    },
+    {
+        id: 'test-2',
+        quote: "Spor yaparken yaşadığım sakatlık sonrası ne yapacağımı bilemiyordum. Fizyoterapi Asistanı ile hem doğru egzersizlere ulaştım hem de motivasyonumu hiç kaybetmedim. Yapay zeka destekli videolar harikaydı.",
+        author: 'Mehmet Ö.'
+    },
+    {
+        id: 'test-3',
+        quote: "Yoğun iş temposunda kliniğe gitmeye vaktim olmuyordu. Evden, kendi programıma göre terapi alabilmek harika bir kolaylık. Terapistimin SOAP notları sayesinde ilerlememi net bir şekilde görebiliyorum. Kesinlikle tavsiye ederim.",
+        author: 'Elif K.'
+    },
+    {
+        id: 'test-4',
+        quote: "Kronik bel ağrılarım için başvurdum. Platformdaki kişiselleştirilmiş program ve terapistimin anlık geri bildirimleri sayesinde ağrılarımda ciddi bir azalma oldu. Dijital ağrı günlüğü çok faydalıydı.",
+        author: 'Mustafa C.'
+    }
+];
+
+
+export const MOCK_DATA = {
+    therapists: MOCK_THERAPISTS,
+    patients: MOCK_PATIENTS,
+    categories: MOCK_CATEGORIES,
+    exercises: MOCK_EXERCISES,
+    programs: MOCK_PROGRAMS,
+    appointments: MOCK_APPOINTMENTS,
+    messages: MOCK_MESSAGES,
+    notifications: MOCK_NOTIFICATIONS,
+};

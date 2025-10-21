@@ -123,11 +123,20 @@ export const generateExerciseWithAI = async (
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-preview-tts',
             contents: [{ parts: [{ text: `Egzersiz: ${generatedData.name}. ${generatedData.description}` }] }],
-            config: { responseModalities: [Modality.AUDIO] },
+            config: { 
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                      prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    },
+                },
+            },
         });
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (base64Audio) {
-            const audioUrl = `data:audio/webm;base64,${base64Audio}`;
+            // FIX: Changed mime type to wav, as webm is unlikely for raw audio data.
+            // Note: This likely requires a proper WAV header for browser playback.
+            const audioUrl = `data:audio/wav;base64,${base64Audio}`;
             generatedData = { ...generatedData, audioUrl };
             onDataUpdate(generatedData);
         }

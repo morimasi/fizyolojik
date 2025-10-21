@@ -2,113 +2,112 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-
-// --- TYPES ---
 export type UserRole = 'admin' | 'therapist' | 'patient';
 
-export type BaseUser = {
-  id: string;
-  name: string;
-  email: string;
-};
-
-export type PatientProgress = {
-  [exerciseId: string]: 'completed' | 'todo';
-};
-
-export type Patient = BaseUser & {
-  password: string;
-  therapistId: string;
-  serviceIds: string[];
-  progress: PatientProgress;
-};
-
-export type AvailabilitySlot = {
-    start: string;
-    end: string;
-};
-
-export type WeeklyAvailability = {
-    day: number; // 0: Pazar, 1: Pazartesi...
-    slots: AvailabilitySlot[];
-}[];
-
-export type Therapist = BaseUser & {
-  password: string;
-  patientIds: string[];
-  availability: WeeklyAvailability;
-};
-
-export type Admin = {
-  name: 'Admin';
-};
-
-export type User = Patient | Therapist | Admin;
-
-export type Category = {
-  id: string;
-  name: string;
-};
-
-export type TherapyProgram = {
-  id: string;
-  categoryId: string;
-  name: string;
-  description: string;
-  exerciseIds: string[];
-};
-
-export type Exercise = {
-  id: string;
-  name: string;
-  description: string;
-  sets: number;
-  reps: number;
-  videoUrl?: string;
-  imageUrl?: string;
-  audioUrl?: string;
-};
-
-export type Message = {
-  id: string;
-  from: string;
-  to: string;
-  text?: string;
-  file?: {
+export interface User {
+    id: string;
     name: string;
-    url: string;
-    mimeType: string;
-  };
-  timestamp: number;
-};
+    email: string;
+}
 
-export type ClinicalNote = {
-  id: string;
-  patientId: string;
-  therapistId: string;
-  text: string;
-  timestamp: number;
-};
+export interface Admin {
+    id: 'admin';
+    name: 'Admin';
+}
 
-export type Notification = {
-  id: string;
-  userId: string;
-  text: string;
-  timestamp: number;
-  read: boolean;
-  link?: {
-    view: string;
-    contextId?: string;
-  };
-};
+export interface Therapist extends User {
+    patientIds: string[];
+    profileImageUrl: string;
+    bio: string;
+}
 
-export type Appointment = {
+export interface ClinicalNote {
+    id: string;
+    therapistId: string;
+    date: number;
+    subjective: string;
+    objective: string;
+    assessment: string;
+    plan: string;
+}
+
+export interface Patient extends User {
+    therapistId: string;
+    serviceIds: string[];
+    painJournal: PainJournalEntry[];
+    // date string "YYYY-MM-DD" -> array of completed exercise IDs
+    exerciseLog: { [date: string]: string[] };
+    clinicalNotes: ClinicalNote[];
+}
+
+export interface Category {
+    id: string;
+    name: string;
+}
+
+export interface TherapyProgram {
+    id: string;
+    name: string;
+    description: string;
+    categoryId: string;
+    exerciseIds: string[];
+}
+
+export interface Exercise {
+    id: string;
+    name: string;
+    description: string;
+    sets: number;
+    reps: number;
+    imageUrl?: string;
+    videoUrl?: string;
+    audioUrl?: string;
+}
+
+export interface Appointment {
     id: string;
     patientId: string;
     therapistId: string;
     start: number;
     end: number;
-    status: 'scheduled' | 'completed' | 'cancelled';
-};
+    status: 'scheduled' | 'completed' | 'canceled';
+    reminderSent?: boolean;
+}
 
-export type EditableItem = Partial<Category & TherapyProgram & Patient & Exercise>;
+export interface FileData {
+    name: string;
+    mimeType: string;
+    url: string;
+}
+
+export interface Message {
+    id: string;
+    from: string;
+    to: string;
+    text: string;
+    timestamp: number;
+    file?: FileData;
+}
+
+export interface Notification {
+    id: string;
+    userId: string;
+    text: string;
+    timestamp: number;
+    read: boolean;
+}
+
+export interface PainJournalEntry {
+    date: number;
+    painLevel: number; // 1-10
+    note: string;
+}
+
+export interface Testimonial {
+    id: string;
+    quote: string;
+    author: string;
+}
+
+
+export type EditableItem = Category | TherapyProgram | Patient | Exercise | Therapist | { categoryId: string } | { patientId: string } | null;

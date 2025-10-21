@@ -3,282 +3,165 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState } from 'react';
-// FIX: Import Message type
-import { Patient, Therapist, TherapyProgram, Exercise, Appointment, Category, Message } from '../types';
-import ChatInterface from '../components/ChatInterface';
+import { Appointment, Exercise, Patient, TherapyProgram, Therapist } from '../types';
+import LineChart from '../components/LineChart';
+import VideoModal from '../components/VideoModal';
+import EmptyState from '../components/EmptyState';
 
 interface PatientDashboardProps {
-    currentUser: Patient;
-    therapists: Therapist[];
+    patient: Patient;
+    therapist: Therapist | undefined;
     programs: TherapyProgram[];
     exercises: Exercise[];
     appointments: Appointment[];
-    categories: Category[];
-    patients: Patient[];
-    onToggleExerciseComplete: (exerciseId: string, programId: string) => void;
-    onBookAppointment: (therapistId: string, start: number) => void;
-    onCancelAppointment: (app: Appointment) => void;
-    onEnrollInProgram: (programId: string) => void;
-    onSendMessage: (text: string, file?: File | null) => void;
-    messages: Message[];
+    onStartChat: (therapist: Therapist) => void;
+    setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
+    onCompleteExercise: (patientId: string, exerciseId: string) => void;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({
-    currentUser, therapists, programs, exercises, appointments, categories,
-    onToggleExerciseComplete, onBookAppointment, onCancelAppointment, onEnrollInProgram,
-    onSendMessage, messages
-}) => {
-    const [patientView, setPatientView] = useState<'dashboard' | 'catalog' | 'chat' | 'appointments'>('dashboard');
-    const [activeChatPartner, setActiveChatPartner] = useState<Therapist | null>(null);
+const ExerciseCalendar: React.FC<{patient: Patient}> = ({ patient }) => {
+    const today = new Date();
+    const [currentWeek, setCurrentWeek] = useState(today);
 
-    const assignedTherapist = therapists.find(t => t.id === currentUser.therapistId);
-    
-    // FIX: Hoist render functions to avoid temporal dead zone errors and organize code.
-    const renderPatientProgramDashboard = () => {
-        const enrolledPrograms = programs.filter(s => currentUser.serviceIds.includes(s.id));
-        return (
-            <>
-                <nav className="dashboard-nav">
-                    <button onClick={() => setPatientView('dashboard')} className="nav-btn active">Panelim</button>
-                    <button onClick={() => setPatientView('appointments')} className="nav-btn">Randevularım</button>
-                    <button onClick={() => setPatientView('catalog')} className="nav-btn">Program Kataloğu</button>
-                    {assignedTherapist && <button onClick={() => startChat(assignedTherapist)} className="nav-btn">Terapistimle Mesajlaş</button>}
-                </nav>
-                <div>
-                     {enrolledPrograms.length > 0 ? enrolledPrograms.map(program => {
-                        const programExercises = exercises.filter(ex => program.exerciseIds.includes(ex.id));
-                        const completedCount = programExercises.filter(ex => currentUser.progress[ex.id] === 'completed').length;
-                        const progressPercentage = programExercises.length > 0 ? (completedCount / programExercises.length) * 100 : 0;
-                        
-                        return (
-                            <div key={program.id} className="program-section">
-                                <h3>{program.name}</h3>
-                                <p>{program.description}</p>
-                                <div className="progress-bar-container"><div className="progress-bar" style={{ width: `${progressPercentage}%` }}></div></div>
-                                <div className="exercise-list">
-                                    {programExercises.map(ex => {
-                                        const isCompleted = currentUser.progress[ex.id] === 'completed';
-                                        return (
-                                            <div key={ex.id} className={`exercise-card ${isCompleted ? 'completed' : ''}`}>
-                                                {ex.imageUrl && <img src={ex.imageUrl} alt={ex.name} className="exercise-card-image" />}
-                                                <div className="exercise-info">
-                                                    <h4>{ex.name}</h4>
-                                                    <p>{ex.description}</p>
-                                                    <span>{ex.sets} set x {ex.reps} tekrar</span>
-                                                </div>
-                                                <div className="exercise-actions">
-                                                    {ex.videoUrl && <button className="btn btn-secondary btn-sm" onClick={() => (window as any).openVideoModal(ex.videoUrl!, ex.name)}>Videoyu İzle</button>}
-                                                    {ex.audioUrl && <button className="btn btn-secondary btn-sm" onClick={() => new Audio(ex.audioUrl).play()}>Dinle 🔊</button>}
-                                                    <button onClick={() => onToggleExerciseComplete(ex.id, program.id)} className={`btn ${isCompleted ? 'btn-secondary' : 'btn-success'}`}>
-                                                        {isCompleted ? 'Geri Al' : 'Tamamlandı'}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )
-                     }) : <p>Henüz bir programa kayıtlı değilsiniz. Katalogdan bir program seçebilirsiniz.</p>}
-                </div>
-            </>
-        );
+    const getWeekDays = (date: Date) => {
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1)); // Monday as start
+        return Array.from({length: 7}).map((_, i) => {
+            const day = new Date(startOfWeek);
+            day.setDate(startOfWeek.getDate() + i);
+            return day;
+        });
     };
 
-    const renderPatientCatalogDashboard = () => {
-        const enrolledServiceIds = new Set(currentUser.serviceIds);
-        return (
-            <>
-                <nav className="dashboard-nav">
-                    <button onClick={() => setPatientView('dashboard')} className="nav-btn">Panelim</button>
-                    <button onClick={() => setPatientView('appointments')} className="nav-btn">Randevularım</button>
-                    <button onClick={() => setPatientView('catalog')} className="nav-btn active">Program Kataloğu</button>
-                    {assignedTherapist && <button onClick={() => startChat(assignedTherapist)} className="nav-btn">Terapistimle Mesajlaş</button>}
-                </nav>
-                <div>
-                    <h3>Tüm Programlar</h3>
-                    {categories.map(cat => (
-                        <div key={cat.id} className="category-section">
-                            <h4>{cat.name}</h4>
-                            <div className="dashboard-grid">
-                                {programs.filter(s => s.categoryId === cat.id).map(s => (
-                                    <div key={s.id} className="dashboard-card">
-                                        <h3>{s.name}</h3>
-                                        <p>{s.description}</p>
-                                        <button 
-                                          className="btn btn-primary"
-                                          disabled={enrolledServiceIds.has(s.id)}
-                                          onClick={() => {
-                                              if (confirm(`'${s.name}' programına kaydolmak istediğinizden emin misiniz?`)) {
-                                                onEnrollInProgram(s.id);
-                                                alert("Başarıyla kaydoldunuz!");
-                                              }
-                                          }}
-                                        >
-                                          {enrolledServiceIds.has(s.id) ? 'Kayıtlı' : 'Kaydol'}
+    const weekDays = getWeekDays(currentWeek);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const changeWeek = (amount: number) => {
+        const newDate = new Date(currentWeek);
+        newDate.setDate(currentWeek.getDate() + amount * 7);
+        setCurrentWeek(newDate);
+    };
+
+    return (
+        <div className="exercise-calendar">
+            <div className="calendar-header">
+                <button onClick={() => changeWeek(-1)}>&lt; Önceki Hafta</button>
+                <h4>Egzersiz Takvimi</h4>
+                <button onClick={() => changeWeek(1)}>Sonraki Hafta &gt;</button>
+            </div>
+            <div className="calendar-grid">
+                {weekDays.map(day => {
+                    const dayStr = day.toISOString().split('T')[0];
+                    const isCompleted = patient.exerciseLog[dayStr]?.length > 0;
+                    const isToday = dayStr === todayStr;
+                    return (
+                        <div key={dayStr} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                            <span className="day-name">{day.toLocaleDateString('tr-TR', { weekday: 'short' })}</span>
+                            <span className="day-number">{day.getDate()}</span>
+                            {isCompleted && <span className="completion-dot"></span>}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist, programs, exercises, appointments, onStartChat, setAppointments, onCompleteExercise }) => {
+    const [view, setView] = useState<'summary' | 'programs' | 'journal'>('summary');
+    const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string; exerciseId: string } | null>(null);
+    const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+
+    const patientPrograms = programs.filter(p => patient.serviceIds.includes(p.id));
+    const upcomingAppointments = appointments.filter(a => a.patientId === patient.id && a.status === 'scheduled' && a.start > Date.now()).sort((a, b) => a.start - b.start);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const completedToday = patient.exerciseLog[todayStr] || [];
+
+    const totalExercises = patientPrograms.reduce((acc, p) => acc + p.exerciseIds.length, 0);
+    const overallProgress = totalExercises > 0 ? (completedToday.length / totalExercises) * 100 : 0;
+    
+    return (
+        <div className="view-enter">
+            <nav className="dashboard-nav">
+                <button onClick={() => setView('summary')} className={`nav-btn ${view === 'summary' ? 'active' : ''}`}>Panelim</button>
+                <button onClick={() => setView('programs')} className={`nav-btn ${view === 'programs' ? 'active' : ''}`}>Programlarım</button>
+                <button onClick={() => setView('journal')} className={`nav-btn ${view === 'journal' ? 'active' : ''}`}>Günlüğüm</button>
+            </nav>
+
+            {view === 'summary' && (
+                 <div className="category-section patient-summary-section">
+                    <h3>Hoş Geldiniz, {patient.name}</h3>
+                    <div className="dashboard-grid">
+                        <div className="dashboard-card">
+                            <h4>Bugünkü İlerleme</h4>
+                            <p>Bugün için planlanan egzersizlerin <strong>%{Math.round(overallProgress)}</strong> kadarını tamamladınız.</p>
+                            <div className="progress-bar-container"><div className="progress-bar" style={{ width: `${overallProgress}%` }}></div></div>
+                        </div>
+                         <div className="dashboard-card">
+                             <h4>Yaklaşan Randevu</h4>
+                             {upcomingAppointments.length > 0 ? (
+                                <>
+                                 <p><strong>{new Date(upcomingAppointments[0].start).toLocaleDateString('tr-TR', {weekday: 'long', day: 'numeric', month: 'long'})}</strong></p>
+                                 <p>Saat: <strong>{new Date(upcomingAppointments[0].start).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'})}</strong></p>
+                                </>
+                             ) : <p>Yaklaşan randevunuz bulunmuyor.</p>}
+                         </div>
+                    </div>
+                     <ExerciseCalendar patient={patient} />
+                 </div>
+            )}
+
+            {view === 'programs' && patientPrograms.map(program => {
+                const programExercises = exercises.filter(ex => program.exerciseIds.includes(ex.id));
+                const completedInProgram = programExercises.filter(ex => completedToday.includes(ex.id)).length;
+                const progress = programExercises.length > 0 ? (completedInProgram / programExercises.length) * 100 : 0;
+                
+                return (
+                    <div key={program.id} className="program-section">
+                        <h3>{program.name}</h3>
+                        <p>{program.description}</p>
+                        <div className="progress-bar-container"><div className="progress-bar" style={{ width: `${progress}%` }}></div></div>
+                        <div className="exercise-list">
+                            {programExercises.map(ex => (
+                                <div key={ex.id} className={`exercise-card ${completedToday.includes(ex.id) ? 'completed' : ''} ${playingVideo?.exerciseId === ex.id || playingAudio === ex.id ? 'playing' : ''}`}>
+                                    {ex.imageUrl && <img src={ex.imageUrl} alt={ex.name} className="exercise-card-image" />}
+                                    <div className="exercise-info">
+                                        <h4>{ex.name} {completedToday.includes(ex.id) && '✓'}</h4>
+                                        <p>{ex.description}</p>
+                                        <span>{ex.sets} set x {ex.reps} tekrar</span>
+                                    </div>
+                                    <div className="exercise-actions">
+                                        <div>
+                                            {ex.videoUrl && <span className="video-icon" onClick={() => setPlayingVideo({ url: ex.videoUrl!, title: ex.name, exerciseId: ex.id })}>🎥</span>}
+                                            {ex.audioUrl && <span className="sound-icon" onClick={() => setPlayingAudio(playingAudio === ex.id ? null : ex.id)}>🔊</span>}
+                                        </div>
+                                        <button className="btn btn-success btn-sm" onClick={() => onCompleteExercise(patient.id, ex.id)} disabled={completedToday.includes(ex.id)}>
+                                            {completedToday.includes(ex.id) ? 'Tamamlandı' : 'Bugün Tamamla'}
                                         </button>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </>
-        );
-    };
-    
-    const renderPatientAppointmentsDashboard = () => {
-        const patientAppointments = appointments.filter(a => a.patientId === currentUser.id).sort((a,b) => a.start - b.start);
-        const now = Date.now();
-        const upcomingAppointments = patientAppointments.filter(a => a.start > now && a.status === 'scheduled');
-        const pastAppointments = patientAppointments.filter(a => a.start <= now || a.status !== 'scheduled');
-
-        const [bookingView, setBookingView] = useState(false);
-        const [selectedDate, setSelectedDate] = useState(new Date());
-
-        const generateAvailableSlots = () => {
-            if (!assignedTherapist) return [];
-            const slots: number[] = [];
-            const date = new Date(selectedDate);
-            date.setHours(0,0,0,0);
-            const dayOfWeek = date.getDay();
-            const availabilityForDay = assignedTherapist.availability.find(a => a.day === dayOfWeek);
-            if (!availabilityForDay) return [];
-
-            const existingAppointmentsOnDay = appointments.filter(a => {
-                const appDate = new Date(a.start);
-                return a.therapistId === assignedTherapist.id &&
-                       appDate.getFullYear() === date.getFullYear() &&
-                       appDate.getMonth() === date.getMonth() &&
-                       appDate.getDate() === date.getDate() &&
-                       a.status === 'scheduled';
-            });
-
-            for (const avail of availabilityForDay.slots) {
-                const [startHour, startMin] = avail.start.split(':').map(Number);
-                const [endHour, endMin] = avail.end.split(':').map(Number);
-                
-                let currentTime = new Date(date);
-                currentTime.setHours(startHour, startMin, 0, 0);
-
-                let endTime = new Date(date);
-                endTime.setHours(endHour, endMin, 0, 0);
-
-                while (currentTime.getTime() + 30 * 60 * 1000 <= endTime.getTime()) {
-                    const slotStart = currentTime.getTime();
-                    const slotEnd = slotStart + 30 * 60 * 1000;
-                    
-                    const isBooked = existingAppointmentsOnDay.some(app => slotStart < app.end && slotEnd > app.start);
-                    if (!isBooked && slotStart > Date.now()) { // Only show future slots
-                        slots.push(slotStart);
-                    }
-                    currentTime.setTime(slotEnd);
-                }
-            }
-            return slots;
-        };
-
-        if (bookingView) {
-            return (
-                <div>
-                     <nav className="dashboard-nav">
-                        <button onClick={() => setPatientView('dashboard')} className="nav-btn">Panelim</button>
-                        <button onClick={() => setPatientView('appointments')} className="nav-btn active">Randevularım</button>
-                        <button onClick={() => setPatientView('catalog')} className="nav-btn">Program Kataloğu</button>
-                    </nav>
-                    <div className="booking-container">
-                        <button onClick={() => setBookingView(false)} className="back-button" style={{position: 'static', marginBottom: '1rem'}}>‹ Geri</button>
-                        <h3>Randevu Al</h3>
-                        <div className="form-group">
-                            <label>Tarih Seçin</label>
-                            <input type="date" min={new Date().toISOString().split('T')[0]} value={selectedDate.toISOString().split('T')[0]} onChange={e => setSelectedDate(new Date(e.target.value))} />
-                        </div>
-                        <h4>Müsait Saatler</h4>
-                        <div className="available-slots">
-                            {generateAvailableSlots().map(slot => (
-                                <button key={slot} className="btn btn-primary" onClick={() => {
-                                    onBookAppointment(assignedTherapist!.id, slot);
-                                    alert('Randevunuz başarıyla oluşturuldu!');
-                                    setBookingView(false);
-                                }}>
-                                    {new Date(slot).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                                </button>
+                                    {playingAudio === ex.id && <audio src={ex.audioUrl} controls autoPlay onEnded={() => setPlayingAudio(null)} style={{width: '100%', marginTop: '10px'}}/>}
+                                </div>
                             ))}
-                             {generateAvailableSlots().length === 0 && <p className="empty-list-text">Bu tarih için uygun saat bulunmamaktadır.</p>}
                         </div>
                     </div>
-                </div>
-            )
-        }
+                )
+            })}
+             {view === 'programs' && patientPrograms.length === 0 && (
+                 <EmptyState title="Henüz Programa Kaydolmadınız" message="Terapistiniz bir program atadığında veya yeni bir programa kaydolduğunuzda burada görünecektir."/>
+            )}
 
-        return (
-            <div>
-                <nav className="dashboard-nav">
-                    <button onClick={() => setPatientView('dashboard')} className="nav-btn">Panelim</button>
-                    <button onClick={() => setPatientView('appointments')} className="nav-btn active">Randevularım</button>
-                    <button onClick={() => setPatientView('catalog')} className="nav-btn">Program Kataloğu</button>
-                     {assignedTherapist && <button onClick={() => startChat(assignedTherapist)} className="nav-btn">Terapistimle Mesajlaş</button>}
-                </nav>
-                <div className="admin-actions">
-                    <h3>Randevularım</h3>
-                    {assignedTherapist && <button className="btn btn-success" onClick={() => setBookingView(true)}>+ Yeni Randevu Al</button>}
-                </div>
 
-                <div className="appointment-list">
-                    <h4>Yaklaşan Randevular</h4>
-                    {upcomingAppointments.length > 0 ? upcomingAppointments.map(app => (
-                        <div key={app.id} className="appointment-card">
-                            <div className="appointment-info">
-                                <strong>{assignedTherapist?.name}</strong>
-                                <span>{new Date(app.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</span>
-                            </div>
-                            <button className="btn btn-danger btn-sm" onClick={() => onCancelAppointment(app)}>İptal Et</button>
-                        </div>
-                    )) : <p className="empty-list-text">Yaklaşan randevunuz bulunmuyor.</p>}
+            {view === 'journal' && (
+                <div className="journal-section">
+                    <LineChart data={patient.painJournal} title="Ağrı Seviyesi Değişimi" />
+                    {/* Pain Journal Form can be added here as a modal or inline */}
                 </div>
-                 <div className="appointment-list">
-                    <h4>Geçmiş Randevular</h4>
-                    {pastAppointments.length > 0 ? pastAppointments.map(app => (
-                        <div key={app.id} className={`appointment-card status-${app.status}`}>
-                            <div className="appointment-info">
-                                <strong>{assignedTherapist?.name}</strong>
-                                <span>{new Date(app.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</span>
-                            </div>
-                            <span className={`status-badge status-${app.status}`}>{app.status}</span>
-                        </div>
-                    )) : <p className="empty-list-text">Geçmiş randevunuz bulunmuyor.</p>}
-                </div>
-            </div>
-        );
-    };
-
-    const startChat = (partner: Therapist) => {
-        setActiveChatPartner(partner);
-        setPatientView('chat');
-    };
-    
-    if (patientView === 'chat' && activeChatPartner) {
-        return <ChatInterface 
-            currentUser={currentUser} 
-            activeChatPartner={activeChatPartner}
-            messages={messages}
-            onSendMessage={onSendMessage}
-            onBack={() => {
-                setActiveChatPartner(null);
-                setPatientView('dashboard');
-            }}
-        />
-    }
-
-    // FIX: Removed redundant conditional check for 'appointments' view, which caused a type error.
-    // The switch statement below now correctly handles all view rendering.
-    switch(patientView) {
-        case 'catalog': return renderPatientCatalogDashboard();
-        case 'appointments': return renderPatientAppointmentsDashboard();
-        case 'dashboard':
-        default:
-            return renderPatientProgramDashboard();
-    }
+            )}
+            
+            {playingVideo && <VideoModal url={playingVideo.url} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
+        </div>
+    );
 };
 
 export default PatientDashboard;
