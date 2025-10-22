@@ -28,47 +28,45 @@ Uygulama, her biri özel bir arayüze ve özelliklere sahip üç ana kullanıcı
 - **Frontend**: React & TypeScript
 - **Yapay Zeka Entegrasyonu**: Google Gemini API (`@google/genai`)
 - **Stil**: Modern bir görünüm ve his için özel değişkenler (custom properties) içeren saf CSS.
-- **Modül Sistemi**: Import Maps ile yerel ES Modülleri (Webpack veya Vite gibi bir paketleyici gerektirmez).
+- **Derleme Aracı (Build Tool)**: Vite
 
 ## 🚀 Başlarken
 
-Bu proje, karmaşık bir derleme (build) sürecine gerek kalmadan doğrudan tarayıcıda çalışacak şekilde tasarlanmıştır.
+Bu proje, Vite kullanılarak oluşturulmuş modern bir React uygulamasıdır. Başlamak için Node.js ve npm'in (veya pnpm/yarn) yüklü olması gerekmektedir.
 
 ### Ön Gereksinimler
-- ES Modüllerini destekleyen modern bir web tarayıcısı (ör. Chrome, Firefox, Edge).
+- Node.js (LTS sürümü önerilir)
 - Geçerli bir Google Gemini API Anahtarı.
 
-### Kurulum ve Ayarlama
+### Kurulum ve Yerel Geliştirme
 
-1.  **Projeyi klonlayın veya dosyaları indirin.**
-2.  **API Anahtarınızı ayarlayın:**
-    Uygulamanın yapay zeka özelliklerini kullanabilmesi için bir Google Gemini API anahtarına ihtiyacı vardır. Bu anahtarı tarayıcının `process.env.API_KEY` değişkeninde kullanılabilir hale getirmeniz gerekir. Bunu yapmanın en kolay yolu, `index.html` dosyasına bir script etiketi eklemektir.
-
-    `index.html` dosyasını açın ve `<script type="module" src="/index.tsx"></script>` satırından **önce** aşağıdaki script etiketini ekleyin:
-
-    ```html
-    <script>
-      // UYARI: Bu yalnızca geliştirme amaçlıdır.
-      // Üretim ortamında API anahtarınızı herkese açık olarak ifşa etmeyin.
-      window.process = {
-        env: {
-          API_KEY: 'AIzaSyDwCLelIHYSCtwwkIlJ74KDpX4ml_eHioQ'
-        }
-      };
-    </script>
-    ```
-    `'GEMINI_API_ANAHTARINIZI_BURAYA_YAZIN'` kısmını kendi Gemini API anahtarınızla değiştirin.
-
-3.  **Uygulamayı Çalıştırma:**
-    Proje dosyalarını basit bir yerel web sunucusu kullanarak sunabilirsiniz. Eğer Node.js yüklüyse, `serve` gibi bir paket kullanabilirsiniz:
+1.  **Projeyi klonlayın ve bağımlılıkları yükleyin:**
     ```bash
-    # Serve paketini genel olarak yükleyin
-    npm install -g serve
-
-    # Proje dizininde sunucuyu başlatın
-    serve .
+    # Proje dizinine gidin
+    npm install
     ```
-    Ardından, tarayıcınızı açın ve sunucunun sağladığı yerel adrese gidin (ör. `http://localhost:3000`).
+
+2.  **API Anahtarınızı ayarlayın:**
+    Projenin ana dizininde `.env.local` adında yeni bir dosya oluşturun. Bu dosyaya API anahtarınızı aşağıdaki formatta ekleyin:
+    ```
+    VITE_API_KEY="AIzaSy...ANOTHER_PART_OF_YOUR_KEY"
+    ```
+    `"AIzaSy...ANOTHER_PART_OF_YOUR_KEY"` kısmını kendi Gemini API anahtarınızla değiştirin. Bu dosya, anahtarınızın güvende kalmasını sağlar ve kaynak kontrolüne dahil edilmemelidir.
+
+3.  **Geliştirme Sunucusunu Başlatın:**
+    Aşağıdaki komutu çalıştırarak yerel geliştirme sunucusunu başlatın:
+    ```bash
+    npm run dev
+    ```
+    Uygulama genellikle `http://localhost:5173` adresinde erişilebilir olacaktır. Vite, Hızlı Yenileme (Fast Refresh) desteği ile harika bir geliştirme deneyimi sunar.
+
+### Üretim için Derleme (Build)
+
+Uygulamayı Vercel gibi bir platformda yayınlamadan önce, optimize edilmiş üretim dosyalarını oluşturmanız gerekir:
+```bash
+npm run build
+```
+Bu komut, projenin statik dosyalarını içeren bir `dist` klasörü oluşturacaktır.
 
 ## 📁 Proje Yapısı
 
@@ -111,12 +109,12 @@ Uygulama, sahte verilerle önceden doldurulmuştur. Farklı rolleri test etmek i
     -   **Parola**: `admin2024`
 
 -   **Terapist**:
-    -   **E-posta**: `zeynep@clinic.com`
+    -   **E-posta**: `elif@terapi.com`
     -   **Parola**: `1234`
 
 -   **Danışan**:
-    -   **E-posta**: `ayse@example.com`
+    -   **E-posta**: `ayse@mail.com`
     -   **Parola**: `1234`
     ---
-    -   **E-posta**: `mehmet@example.com`
+    -   **E-posta**: `mehmet@mail.com`
     -   **Parola**: `1234`

@@ -27,7 +27,8 @@ export const getAiSuggestion = async (
       })
       .join('\n');
       
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `Sen profesyonel ve yardımsever bir fizyoterapi asistanısın. Bir danışan ve terapist arasındaki son konuşma dökümü aşağıdadır:
 ---
 ${conversationContext}
@@ -51,7 +52,8 @@ export const generateExerciseWithAI = async (
 ): Promise<Partial<Exercise>> => {
 
     let generatedData: Partial<Exercise> = {};
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     if (wants.description) {
         onStatusUpdate('Açıklama oluşturuluyor...');
@@ -110,6 +112,7 @@ export const generateExerciseWithAI = async (
 
         const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
         if (downloadLink) {
+            // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
             const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
             const videoBlob = await videoResponse.blob();
             const videoUrl = await fileToDataURL(videoBlob);
@@ -161,7 +164,8 @@ export const getAiPatientSummary = async (patient: Patient): Promise<string> => 
         ? patient.clinicalNotes.map(n => `Tarih: ${new Date(n.date).toLocaleDateString('tr-TR')}\nSübjektif: ${n.subjective}\nObjektif: ${n.objective}\nDeğerlendirme: ${n.assessment}\nPlan: ${n.plan}`).join('\n---\n')
         : "Danışan için klinik not bulunmuyor.";
     
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const prompt = `Sen, bir fizyoterapiste yardımcı olan bir yapay zeka asistanısın. Görevin, bir danışanın verilerini analiz ederek terapisti için kısa ve öz bir ilerleme özeti oluşturmaktır. Veriler, danışanın ağrı günlüğünü, egzersiz kayıtlarını ve terapistin yazdığı klinik notları içermektedir.
 
@@ -199,7 +203,8 @@ export const getAiAdminSummary = async (stats: {
     completedAppointments: number;
     patientEngagement: number;
 }): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const prompt = `Sen bir sağlık yöneticisine veri analizi sunan bir yapay zeka asistanısın. Aşağıda bir fizyoterapi kliniğinin belirli bir dönemdeki performans metrikleri bulunmaktadır:
 - Toplam Aktif Danışan: ${stats.totalPatients}
@@ -225,7 +230,8 @@ export const getFaqAnswer = async (
     userQuestion: string,
     faqs: FAQItem[]
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const faqContext = faqs.map(faq => `Soru: ${faq.question}\nCevap: ${faq.answer}`).join('\n\n');
 
@@ -260,7 +266,8 @@ export const generateVideoFromImageAI = async (
     const base64Image = await blobToBase64(imageFile);
     
     // Create a new instance right before the call to use the latest API key
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     onStatusUpdate('Video oluşturma işlemi başlatılıyor... (Bu işlem birkaç dakika sürebilir)');
 
@@ -313,6 +320,7 @@ export const generateVideoFromImageAI = async (
     onStatusUpdate('Video alınıyor...');
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (downloadLink) {
+        // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY as per guidelines.
         const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
         if (!videoResponse.ok) {
             throw new Error(`Video indirme hatası: ${videoResponse.statusText}`);
