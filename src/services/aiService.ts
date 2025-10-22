@@ -33,11 +33,51 @@ export const getAiSuggestion = (currentUser: User, activeChatPartnerId: string, 
     return callApi<string>('getSuggestion', { currentUser, activeChatPartnerId, messages });
 };
 
-export const generateExerciseWithAI = (
+// Types for the new asynchronous generation process
+interface GenerationState {
+    generatedData: Partial<Exercise>;
+    wants: { description: boolean; image: boolean; video: boolean; audio: boolean; };
+    prompt: string;
+    nextStep: 'image' | 'video_start' | 'video_poll' | 'audio' | 'done';
+    videoOperation?: any;
+}
+
+interface PollResponse {
+  state: GenerationState;
+  isDone: boolean;
+  statusMessage: string;
+  finalData?: Partial<Exercise>;
+}
+
+export const generateExerciseWithAI = async (
     prompt: string, 
-    wants: { description: boolean; image: boolean; video: boolean; audio: boolean; }
+    wants: { image: boolean; video: boolean; audio: boolean; },
+    onStatusUpdate: (status: string) => void
 ): Promise<Partial<Exercise>> => {
-    return callApi<Partial<Exercise>>('generateExercise', { prompt, wants });
+    onStatusUpdate('Egzersiz oluşturma isteği başlatılıyor...');
+    
+    // The backend always generates description first.
+    const payload = { prompt, wants: { ...wants, description: true } };
+    
+    // Start the process
+    let pollResponse = await callApi<PollResponse>('generateExercise_start', payload);
+    onStatusUpdate(pollResponse.statusMessage);
+
+    // Poll until done
+    while (!pollResponse.isDone) {
+        // Wait for a reasonable polling interval. 5 seconds is good for most steps.
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Pass the state to the next poll request
+        pollResponse = await callApi<PollResponse>('generateExercise_poll', { state: pollResponse.state });
+        onStatusUpdate(pollResponse.statusMessage);
+    }
+    
+    if (pollResponse.finalData) {
+        return pollResponse.finalData;
+    } else {
+        throw new Error("Egzersiz oluşturma tamamlandı ancak sonuç verisi alınamadı.");
+    }
 };
 
 export const getAiPatientSummary = (patient: Patient): Promise<string> => {

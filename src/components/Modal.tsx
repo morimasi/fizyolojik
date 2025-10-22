@@ -49,7 +49,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
         const prompt = formData.get('prompt') as string;
-        const wants = { description: formData.has('wants-description'), image: formData.has('wants-image'), video: formData.has('wants-video'), audio: formData.has('wants-audio'), };
+        const wants = {
+            image: formData.has('wants-image'),
+            video: formData.has('wants-video'),
+            audio: formData.has('wants-audio'),
+        };
         if (!prompt) return;
         
         setIsGenerating(true);
@@ -57,7 +61,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
         setGenerationStatus('Egzersiz yapay zeka ile oluşturuluyor... Bu işlem biraz zaman alabilir.');
 
         try {
-            const finalData = await generateExerciseWithAI(prompt, wants);
+            const finalData = await generateExerciseWithAI(prompt, wants, setGenerationStatus);
             setGeneratedData(finalData);
             setGenerationStatus('Oluşturma tamamlandı! Lütfen kontrol edip kaydedin.');
         } catch (error) {
@@ -186,7 +190,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                                 <div className="form-group">
                                     <label>Neler Oluşturulsun?</label>
                                     <div className="checklist-group">
-                                        <div className="checklist-item"><input type="checkbox" name="wants-description" defaultChecked disabled={isGenerating}/><label>Açıklama</label></div>
                                         <div className="checklist-item"><input type="checkbox" name="wants-image" defaultChecked disabled={isGenerating}/><label>Görsel</label></div>
                                         <div className="checklist-item"><input type="checkbox" name="wants-video" disabled={isGenerating}/><label>Video</label></div>
                                         <div className="checklist-item"><input type="checkbox" name="wants-audio" disabled={isGenerating}/><label>Sesli Anlatım</label></div>

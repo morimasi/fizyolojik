@@ -7,6 +7,15 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { Exercise, FAQItem, Patient } from '../src/types';
 import { createWavFileBlob, decodeBase64, blobToDataURL } from './_utils';
 
+// A type for the state that will be passed between poll requests
+interface GenerationState {
+    generatedData: Partial<Exercise>;
+    wants: { description: boolean; image: boolean; video: boolean; audio: boolean; };
+    prompt: string;
+    nextStep: 'image' | 'video_start' | 'video_poll' | 'audio' | 'done';
+    videoOperation?: any;
+}
+
 // Main handler for all AI-related tasks
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
@@ -43,67 +52,119 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 result = suggestionResponse.text || 'Üzgünüm, şu anda bir öneri oluşturamıyorum. Lütfen daha sonra tekrar deneyin.';
                 break;
 
-            case 'generateExercise':
+            case 'generateExercise_start': {
                 const { prompt, wants } = payload;
                 let generatedData: Partial<Exercise> = {};
-
-                if (wants.description) {
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
-                        contents: `Bir fizyoterapi egzersizi oluştur. İstem: "${prompt}". JSON formatında şu alanları doldur: name (string, kısa ve net), description (string, detaylı açıklama), sets (number), reps (number). Sadece JSON nesnesini döndür.`,
-                        config: {
-                            responseMimeType: "application/json",
-                            responseSchema: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, sets: { type: Type.INTEGER }, reps: { type: Type.INTEGER } }, required: ["name", "description", "sets", "reps"] }
-                        }
-                    });
-                    const responseText = response.text;
-                    if (!responseText) {
-                        throw new Error('Yapay zeka egzersiz için geçerli bir metin oluşturamadı.');
+                let statusMessage = "İstek alındı, metin içeriği oluşturuluyor...";
+            
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: `Bir fizyoterapi egzersizi oluştur. İstem: "${prompt}". JSON formatında şu alanları doldur: name (string, kısa ve net), description (string, detaylı açıklama), sets (number), reps (number). Sadece JSON nesnesini döndür.`,
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, sets: { type: Type.INTEGER }, reps: { type: Type.INTEGER } }, required: ["name", "description", "sets", "reps"] }
                     }
-                    try {
-                        generatedData = { ...generatedData, ...JSON.parse(responseText) };
-                    } catch (e) {
-                        console.error("Failed to parse JSON from AI for exercise description:", responseText);
-                        throw new Error("Yapay zeka geçersiz bir formatta yanıt verdi.");
-                    }
+                });
+                const responseText = response.text;
+                if (!responseText) {
+                    throw new Error('Yapay zeka egzersiz için geçerli bir metin oluşturamadı.');
                 }
-                const descriptionForMedia = generatedData.description || `bir kişinin "${prompt}" hareketini yaptığı`;
-
-                if (wants.image) {
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
-                        contents: { parts: [{ text: `Bir fizyoterapi egzersizini gösteren net, aydınlık, bilgilendirici bir görsel: ${descriptionForMedia}` }] },
-                        config: { responseModalities: [Modality.IMAGE] },
-                    });
-                    const part = response.candidates?.[0]?.content?.parts?.[0];
-                    if (part?.inlineData) {
-                        generatedData.imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                    }
+                try {
+                    generatedData = JSON.parse(responseText);
+                } catch (e) {
+                    console.error("Failed to parse JSON from AI for exercise description:", responseText);
+                    throw new Error("Yapay zeka geçersiz bir formatta yanıt verdi.");
                 }
-                if (wants.video) {
-                    let op = await ai.models.generateVideos({ model: 'veo-3.1-fast-generate-preview', prompt: `Kısa, döngüsel bir video: Fizyoterapi egzersizi yapan bir kişi. Egzersiz: ${descriptionForMedia}. Net, eğitici stil.`, config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '1:1' } });
-                    while (!op.done) {
-                        await new Promise(resolve => setTimeout(resolve, 5000));
-                        op = await ai.operations.getVideosOperation({ operation: op });
-                    }
-                    const link = op.response?.generatedVideos?.[0]?.video?.uri;
-                    if (link) {
-                        const videoRes = await fetch(`${link}&key=${process.env.API_KEY}`);
-                        const videoBlob = await videoRes.blob();
-                        generatedData.videoUrl = await blobToDataURL(videoBlob);
-                    }
-                }
-                if (wants.audio && generatedData.description) {
-                    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash-preview-tts', contents: [{ parts: [{ text: `Egzersiz: ${generatedData.name}. ${generatedData.description}` }] }], config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } } });
-                    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-                    if (base64Audio) {
-                        const pcmData = decodeBase64(base64Audio);
-                        const audioBlob = createWavFileBlob(pcmData, 24000, 1);
-                        generatedData.audioUrl = await blobToDataURL(audioBlob);
-                    }
-                }
-                result = generatedData;
+                
+                const nextStep = wants.image ? 'image' : (wants.video ? 'video_start' : (wants.audio ? 'audio' : 'done'));
+                statusMessage = `Metin oluşturuldu. Sonraki adım: ${nextStep}`;
+            
+                const initialState: GenerationState = {
+                    generatedData,
+                    wants,
+                    prompt,
+                    nextStep,
+                };
+                
+                result = { state: initialState, isDone: nextStep === 'done', statusMessage, finalData: nextStep === 'done' ? generatedData : null };
                 break;
+            }
+
+            case 'generateExercise_poll': {
+                const state: GenerationState = payload.state;
+                let { generatedData, wants, prompt, nextStep, videoOperation } = state;
+                let isDone = false;
+                let statusMessage = '';
+            
+                const descriptionForMedia = generatedData.description || `bir kişinin "${prompt}" hareketini yaptığı`;
+            
+                switch (nextStep) {
+                    case 'image':
+                        statusMessage = "Görsel materyal oluşturuluyor...";
+                        if (wants.image) {
+                            const response = await ai.models.generateContent({
+                                model: 'gemini-2.5-flash-image',
+                                contents: { parts: [{ text: `Bir fizyoterapi egzersizini gösteren net, aydınlık, bilgilendirici bir görsel: ${descriptionForMedia}` }] },
+                                config: { responseModalities: [Modality.IMAGE] },
+                            });
+                            const part = response.candidates?.[0]?.content?.parts?.[0];
+                            if (part?.inlineData) {
+                                generatedData.imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                            }
+                        }
+                        nextStep = wants.video ? 'video_start' : (wants.audio ? 'audio' : 'done');
+                        statusMessage = "Görsel oluşturuldu. Sonraki adım: " + nextStep;
+                        break;
+            
+                    case 'video_start':
+                        statusMessage = "Video oluşturma işlemi başlatılıyor...";
+                        videoOperation = await ai.models.generateVideos({ model: 'veo-3.1-fast-generate-preview', prompt: `Kısa, döngüsel bir video: Fizyoterapi egzersizi yapan bir kişi. Egzersiz: ${descriptionForMedia}. Net, eğitici stil.`, config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '1:1' } });
+                        nextStep = 'video_poll';
+                        statusMessage = "Video işlemi sunucuya gönderildi, sonuç bekleniyor...";
+                        break;
+                        
+                    case 'video_poll':
+                        statusMessage = "Video işleniyor... Bu işlem birkaç dakika sürebilir.";
+                        videoOperation = await ai.operations.getVideosOperation({ operation: videoOperation });
+                        if (videoOperation.done) {
+                            statusMessage = "Video işleme tamamlandı, dosya alınıyor...";
+                            const link = videoOperation.response?.generatedVideos?.[0]?.video?.uri;
+                            if (link) {
+                                const videoRes = await fetch(`${link}&key=${process.env.API_KEY}`);
+                                const videoBlob = await videoRes.blob();
+                                generatedData.videoUrl = await blobToDataURL(videoBlob);
+                            }
+                            nextStep = wants.audio ? 'audio' : 'done';
+                            statusMessage = "Video oluşturuldu. Sonraki adım: " + nextStep;
+                        } else {
+                            nextStep = 'video_poll';
+                        }
+                        break;
+            
+                    case 'audio':
+                        statusMessage = "Sesli anlatım oluşturuluyor...";
+                        if (wants.audio && generatedData.description) {
+                            const response = await ai.models.generateContent({ model: 'gemini-2.5-flash-preview-tts', contents: [{ parts: [{ text: `Egzersiz: ${generatedData.name}. ${generatedData.description}` }] }], config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } } });
+                            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                            if (base64Audio) {
+                                const pcmData = decodeBase64(base64Audio);
+                                const audioBlob = createWavFileBlob(pcmData, 24000, 1);
+                                generatedData.audioUrl = await blobToDataURL(audioBlob);
+                            }
+                        }
+                        nextStep = 'done';
+                        statusMessage = "Sesli anlatım oluşturuldu. İşlem tamamlandı.";
+                        break;
+                }
+            
+                if (nextStep === 'done') {
+                    isDone = true;
+                }
+            
+                const newState: GenerationState = { generatedData, wants, prompt, nextStep, videoOperation };
+                result = { state: newState, isDone, statusMessage, finalData: isDone ? generatedData : null };
+                break;
+            }
 
             case 'getPatientSummary':
                 const patient: Patient = payload.patient;
