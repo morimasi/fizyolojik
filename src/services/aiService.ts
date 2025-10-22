@@ -4,7 +4,7 @@
 */
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { Exercise, FAQItem, Message, User, Patient } from '../types';
-import { fileToDataURL, createWavFileBlob, decodeBase64 } from '../utils';
+import { fileToDataURL, createWavFileBlob, decodeBase64, blobToBase64 } from '../utils';
 
 export const getAiSuggestion = async (
     currentUser: User, 
@@ -248,4 +248,86 @@ Sadece cevabı döndür, ek bir açıklama yapma.`;
     });
 
     return response.text;
+};
+
+export const generateVideoFromImageAI = async (
+    imageFile: File,
+    prompt: string,
+    aspectRatio: '16:9' | '9:16',
+    onStatusUpdate: (status: string) => void,
+): Promise<Partial<Exercise>> => {
+    onStatusUpdate('Görsel hazırlanıyor...');
+    const base64Image = await blobToBase64(imageFile);
+    
+    // Create a new instance right before the call to use the latest API key
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+    onStatusUpdate('Video oluşturma işlemi başlatılıyor... (Bu işlem birkaç dakika sürebilir)');
+
+    let operation;
+    try {
+        operation = await ai.models.generateVideos({
+            model: 'veo-3.1-fast-generate-preview',
+            prompt: `Kısa, döngüsel bir video: ${prompt}`,
+            image: {
+                imageBytes: base64Image,
+                mimeType: imageFile.type,
+            },
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: aspectRatio
+            }
+        });
+    } catch(e) {
+        if (e instanceof Error && e.message.includes('API key not valid')) {
+             throw new Error("API Anahtarı geçerli değil. Lütfen geçerli bir anahtar seçip tekrar deneyin.");
+        }
+        throw e;
+    }
+    
+    onStatusUpdate('Video işleniyor... Lütfen bekleyin. Bu süreçte ekranı kapatmayın.');
+
+    let progressCounter = 0;
+    const progressMessages = [
+        "İlk kareler oluşturuluyor...",
+        "Hareket vektörleri hesaplanıyor...",
+        "Görüntü akışı render ediliyor...",
+        "Son rötuşlar yapılıyor..."
+    ];
+
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
+        onStatusUpdate(`Video işleniyor... (${progressMessages[progressCounter % progressMessages.length]})`);
+        progressCounter++;
+        try {
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        } catch (e) {
+            if (e instanceof Error && e.message.includes('Requested entity was not found')) {
+                 throw new Error("API Anahtarı bulunamadı veya geçersiz. Lütfen anahtarınızı seçip tekrar deneyin.");
+            }
+            throw e; // Re-throw other errors
+        }
+    }
+
+    onStatusUpdate('Video alınıyor...');
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (downloadLink) {
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Video indirme hatası: ${videoResponse.statusText}`);
+        }
+        const videoBlob = await videoResponse.blob();
+        const videoUrl = await fileToDataURL(videoBlob);
+        
+        return {
+            videoUrl,
+            name: prompt || 'Oluşturulan Video Egzersizi',
+            description: `Bu egzersiz, "${prompt}" istemiyle bir görselden oluşturulmuştur.`,
+            sets: 3,
+            reps: 10,
+        };
+    } else {
+        throw new Error('Video oluşturulamadı. Model bir sonuç döndürmedi.');
+    }
 };

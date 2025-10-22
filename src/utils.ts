@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-// FIX: Changed parameter type from File to Blob to support blobs from fetch responses.
+/**
+ * Converts a Blob to a data URL string.
+ * This is useful for embedding files directly in HTML (e.g., img src, video src).
+ * @param file The Blob to convert.
+ * @returns A promise that resolves with the data URL string.
+ */
 export const fileToDataURL = (file: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -12,6 +17,27 @@ export const fileToDataURL = (file: Blob): Promise<string> => {
         reader.readAsDataURL(file);
     });
 };
+
+/**
+ * Converts a Blob to a base64 encoded string (without the data URL prefix).
+ * This is useful for sending file data in JSON payloads to APIs like Gemini.
+ * @param blob The Blob to convert.
+ * @returns A promise that resolves with the base64 string.
+ */
+export const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result as string;
+            // remove the prefix `data:mime/type;base64,`
+            const base64 = dataUrl.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(blob);
+    });
+};
+
 
 export const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) return '🖼️';
