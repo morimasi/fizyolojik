@@ -1,12 +1,9 @@
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import postgres from 'postgres';
 import { seed } from '../scripts/seed';
 import { AppData } from '../src/services/apiService';
 import { schemaSql } from '../scripts/schema';
-
-const sql = postgres(process.env.POSTGRES_URL!, {
-    ssl: 'require',
-});
+import { sql } from '../scripts/db';
 
 const tableNames = [
     'appointments',

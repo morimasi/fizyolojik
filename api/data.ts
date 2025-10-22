@@ -1,13 +1,7 @@
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import postgres from 'postgres';
 import { AppData } from '../src/services/apiService';
-
-const sql = postgres(process.env.POSTGRES_URL!, {
-    ssl: 'require',
-});
-
-// The initializeDb function has been removed as it's not suitable for a serverless environment.
-// Database initialization should be handled by Vercel's build process or a dedicated setup script.
+import { sql, initializeDb } from '../scripts/db';
 
 async function getAllData(): Promise<AppData> {
     const [therapists, patients, categories, exercises, programs, appointments, messages, notifications, testimonials, faqs] = await Promise.all([
@@ -28,7 +22,9 @@ async function getAllData(): Promise<AppData> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
-        // The initializeDb() call is removed. The API now assumes the DB is ready.
+        // Ensure the database is ready before any operation.
+        await initializeDb();
+        
         if (req.method === 'GET') {
             const data = await getAllData();
             return res.status(200).json(data);
@@ -137,12 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(405).json({ error: 'Method Not Allowed' });
     } catch (error: any) {
-        // A simple check to see if the database is likely uninitialized
-        if (error.message.includes('relation') && error.message.includes('does not exist')) {
-            console.error('Database query failed. The database might not be initialized or the schema is missing. Please check your Vercel deployment logs for initialization errors.');
-             return res.status(500).json({ error: 'Sunucu hatası: Veritabanı düzgün şekilde başlatılamamış olabilir. Lütfen yöneticinizle iletişime geçin.' });
-        }
-        console.error('API Error:', error);
-        return res.status(500).json({ error: error.message });
+        console.error('API Error in /api/data:', error);
+        return res.status(500).json({ error: `Sunucu Hatası: ${error.message}` });
     }
 }
