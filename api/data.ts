@@ -1,4 +1,5 @@
 
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AppData } from '../src/services/apiService';
 import { sql, initializeDb } from '../scripts/db';
@@ -38,86 +39,84 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const records = value as any[];
                     if (!records || records.length === 0) return;
 
+                    const mapPatient = (p: any) => ({
+                        id: p.id, name: p.name, email: p.email, therapist_id: p.therapistId, service_ids: p.serviceIds,
+                        pain_journal: p.painJournal, exercise_log: p.exerciseLog, clinical_notes: p.clinicalNotes,
+                    });
+                    const mapAppointment = (a: any) => ({
+                        id: a.id, patient_id: a.patientId, therapist_id: a.therapistId, start_time: a.start, end_time: a.end,
+                        status: a.status, notes: a.notes, reminder_sent: a.reminderSent || null,
+                    });
+                    const mapMessage = (m: any) => ({
+                        id: m.id, from_user_id: m.from, to_user_id: m.to, text_content: m.text, timestamp: m.timestamp,
+                        file_data: m.file || null
+                    });
+                    const mapNotification = (n: any) => ({
+                        id: n.id, user_id: n.userId, text_content: n.text, timestamp: n.timestamp, is_read: n.read
+                    });
+                    const mapProgram = (p: any) => ({
+                        id: p.id, name: p.name, description: p.description, category_id: p.categoryId, exercise_ids: p.exerciseIds
+                    });
+                     const mapExercise = (e: any) => ({
+                        id: e.id, name: e.name, description: e.description, sets: e.sets, reps: e.reps,
+                        image_url: e.imageUrl, video_url: e.videoUrl, audio_url: e.audioUrl
+                    });
+                    const mapTherapist = (t: any) => ({
+                        id: t.id, name: t.name, email: t.email, profile_image_url: t.profileImageUrl, bio: t.bio, patient_ids: t.patientIds
+                    });
+
                     switch (key) {
                         case 'patients':
                             return transaction`
-                                INSERT INTO patients (id, name, email, therapist_id, service_ids, pain_journal, exercise_log, clinical_notes)
-                                SELECT * FROM ${transaction(records.map(p => ({...p, therapist_id: p.therapistId, service_ids: p.serviceIds, pain_journal: p.painJournal, exercise_log: p.exerciseLog, clinical_notes: p.clinicalNotes})))}
+                                INSERT INTO patients ${transaction(records.map(mapPatient))}
                                 ON CONFLICT (id) DO UPDATE SET
-                                    name = EXCLUDED.name,
-                                    email = EXCLUDED.email,
-                                    therapist_id = EXCLUDED.therapist_id,
-                                    service_ids = EXCLUDED.service_ids,
-                                    pain_journal = EXCLUDED.pain_journal,
-                                    exercise_log = EXCLUDED.exercise_log,
-                                    clinical_notes = EXCLUDED.clinical_notes;
+                                    name = EXCLUDED.name, email = EXCLUDED.email, therapist_id = EXCLUDED.therapist_id,
+                                    service_ids = EXCLUDED.service_ids, pain_journal = EXCLUDED.pain_journal,
+                                    exercise_log = EXCLUDED.exercise_log, clinical_notes = EXCLUDED.clinical_notes;
                             `;
                         case 'appointments':
                              return transaction`
-                                INSERT INTO appointments (id, patient_id, therapist_id, start_time, end_time, status, notes, reminder_sent)
-                                SELECT * FROM ${transaction(records.map(a => ({...a, patient_id: a.patientId, therapist_id: a.therapistId, start_time: a.start, end_time: a.end, reminder_sent: a.reminderSent || null})))}
+                                INSERT INTO appointments ${transaction(records.map(mapAppointment))}
                                 ON CONFLICT (id) DO UPDATE SET
-                                    patient_id = EXCLUDED.patient_id,
-                                    therapist_id = EXCLUDED.therapist_id,
-                                    start_time = EXCLUDED.start_time,
-                                    end_time = EXCLUDED.end_time,
-                                    status = EXCLUDED.status,
-                                    notes = EXCLUDED.notes,
-                                    reminder_sent = EXCLUDED.reminder_sent;
+                                    patient_id = EXCLUDED.patient_id, therapist_id = EXCLUDED.therapist_id,
+                                    start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time, status = EXCLUDED.status,
+                                    notes = EXCLUDED.notes, reminder_sent = EXCLUDED.reminder_sent;
                             `;
                         case 'messages':
                             return transaction`
-                                INSERT INTO messages (id, from_user_id, to_user_id, text_content, timestamp, file_data)
-                                SELECT * FROM ${transaction(records.map(m => ({id: m.id, from_user_id: m.from, to_user_id: m.to, text_content: m.text, timestamp: m.timestamp, file_data: m.file || null})))}
-                                ON CONFLICT (id) DO UPDATE SET
-                                    text_content = EXCLUDED.text_content;
+                                INSERT INTO messages ${transaction(records.map(mapMessage))}
+                                ON CONFLICT (id) DO UPDATE SET text_content = EXCLUDED.text_content;
                             `;
                         case 'notifications':
                              return transaction`
-                                INSERT INTO notifications (id, user_id, text_content, timestamp, is_read)
-                                SELECT * FROM ${transaction(records.map(n => ({id: n.id, user_id: n.userId, text_content: n.text, timestamp: n.timestamp, is_read: n.read})))}
-                                ON CONFLICT (id) DO UPDATE SET
-                                    is_read = EXCLUDED.is_read;
+                                INSERT INTO notifications ${transaction(records.map(mapNotification))}
+                                ON CONFLICT (id) DO UPDATE SET is_read = EXCLUDED.is_read;
                             `;
                          case 'categories':
                              return transaction`
-                                INSERT INTO categories (id, name)
-                                SELECT * FROM ${transaction(records)}
+                                INSERT INTO categories ${transaction(records)}
                                 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
                             `;
                          case 'programs':
                              return transaction`
-                                INSERT INTO therapy_programs (id, name, description, category_id, exercise_ids)
-                                SELECT * FROM ${transaction(records.map(p => ({...p, category_id: p.categoryId, exercise_ids: p.exerciseIds})))}
+                                INSERT INTO therapy_programs ${transaction(records.map(mapProgram))}
                                 ON CONFLICT (id) DO UPDATE SET 
-                                    name = EXCLUDED.name,
-                                    description = EXCLUDED.description,
-                                    category_id = EXCLUDED.category_id,
+                                    name = EXCLUDED.name, description = EXCLUDED.description, category_id = EXCLUDED.category_id,
                                     exercise_ids = EXCLUDED.exercise_ids;
                             `;
                           case 'exercises':
                              return transaction`
-                                INSERT INTO exercises (id, name, description, sets, reps, image_url, video_url, audio_url)
-                                SELECT * FROM ${transaction(records.map(e => ({...e, image_url: e.imageUrl, video_url: e.videoUrl, audio_url: e.audioUrl})))}
+                                INSERT INTO exercises ${transaction(records.map(mapExercise))}
                                 ON CONFLICT (id) DO UPDATE SET
-                                    name = EXCLUDED.name,
-                                    description = EXCLUDED.description,
-                                    sets = EXCLUDED.sets,
-                                    reps = EXCLUDED.reps,
-                                    image_url = EXCLUDED.image_url,
-                                    video_url = EXCLUDED.video_url,
-                                    audio_url = EXCLUDED.audio_url;
+                                    name = EXCLUDED.name, description = EXCLUDED.description, sets = EXCLUDED.sets, reps = EXCLUDED.reps,
+                                    image_url = EXCLUDED.image_url, video_url = EXCLUDED.video_url, audio_url = EXCLUDED.audio_url;
                             `;
                            case 'therapists':
                              return transaction`
-                                INSERT INTO therapists (id, name, email, profile_image_url, bio, patient_ids)
-                                SELECT * FROM ${transaction(records.map(t => ({...t, profile_image_url: t.profileImageUrl, patient_ids: t.patientIds})))}
+                                INSERT INTO therapists ${transaction(records.map(mapTherapist))}
                                 ON CONFLICT (id) DO UPDATE SET
-                                    name = EXCLUDED.name,
-                                    email = EXCLUDED.email,
-                                    profile_image_url = EXCLUDED.profile_image_url,
-                                    bio = EXCLUDED.bio,
-                                    patient_ids = EXCLUDED.patient_ids;
+                                    name = EXCLUDED.name, email = EXCLUDED.email, profile_image_url = EXCLUDED.profile_image_url,
+                                    bio = EXCLUDED.bio, patient_ids = EXCLUDED.patient_ids;
                             `;
                         default:
                             console.warn(`Update not handled for key: ${key}`);
