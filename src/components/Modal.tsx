@@ -190,8 +190,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                                 <div className="form-group">
                                     <label>Ek Materyaller Oluşturulsun mu?</label>
                                     <p style={{fontSize: '0.9rem', color: 'var(--secondary-color)', marginTop: '-0.5rem', marginBottom: '0.5rem'}}>
-                                        Yapay zeka, verdiğiniz isteme göre egzersiz için bir <strong>isim, açıklama, set ve tekrar sayısı</strong> gibi temel detayları otomatik olarak oluşturacaktır. 
-                                        Dilerseniz, bu temel bilgilere ek olarak aşağıdaki isteğe bağlı materyallerin de üretilmesini sağlayabilirsiniz:
+                                        Yapay zeka, verdiğiniz isteme dayanarak egzersiz için bir <strong>isim, açıklama, set ve tekrar sayısı</strong> önerecektir. 
+                                        Bu temel bilgilere ek olarak, aşağıdaki isteğe bağlı materyallerin de üretilmesini talep edebilirsiniz:
                                     </p>
                                     <div className="checklist-group">
                                         <div className="checklist-item"><input type="checkbox" name="wants-image" defaultChecked disabled={isGenerating}/><label>Görsel</label></div>

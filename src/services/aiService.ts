@@ -65,7 +65,7 @@ export const generateExerciseWithAI = async (
 
     // Poll until done
     while (!pollResponse.isDone) {
-        const pollInterval = pollResponse.state.nextStep === 'video_poll' ? 15000 : 5000;
+        const pollInterval = pollResponse.state.nextStep === 'video_poll' ? 12000 : 5000;
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         
         // Pass the state to the next poll request
