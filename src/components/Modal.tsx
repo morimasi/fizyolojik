@@ -76,7 +76,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
         
         setIsGenerating(true);
         setGeneratedData(null);
-        setGenerationStatus('');
+        setGenerationStatus('Video oluşturma işlemi başlatıldı. Bu işlem birkaç dakika sürebilir...');
 
         try {
             const generatedData = await generateVideoFromImageAI(videoImageFile, videoPrompt, videoAspectRatio, setGenerationStatus);
@@ -114,7 +114,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
         if (mode === 'add') {
              const therapistPatients = patients.filter(p => p.therapistId === editingAppointment.therapistId);
             return (
-                 <form onSubmit={onSubmit} className="modal-form">
+                 <form onSubmit={(e) => {
+                     e.preventDefault();
+                     const formData = new FormData(e.currentTarget);
+                     onUpsertAppointment({
+                        therapistId: editingAppointment.therapistId,
+                        start: editingAppointment.start,
+                        patientId: formData.get('patientId') as string,
+                        notes: formData.get('notes') as string,
+                     });
+                 }} className="modal-form">
                     <p><strong>Tarih & Saat:</strong> {new Date(editingAppointment.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</p>
                      <div className="form-group">
                         <label htmlFor="patientId">Danışan</label>
@@ -148,10 +157,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                         </div>
                     )}
                      <div className="modal-footer appointment-actions">
-                        <button type="button" className="btn btn-danger" onClick={() => onUpsertAppointment({ ...editingAppointment, status: 'canceled' })}>Randevuyu İptal Et</button>
+                        {editingAppointment.status === 'scheduled' && <button type="button" className="btn btn-danger" onClick={() => onUpsertAppointment({ ...editingAppointment, status: 'canceled' })}>Randevuyu İptal Et</button>}
                         <div>
                             <button type="button" className="btn btn-secondary" onClick={onClose}>Kapat</button>
-                            <button type="button" className="btn btn-success" onClick={() => onUpsertAppointment({ ...editingAppointment, status: 'completed' })}>Görüşmeyi Tamamla</button>
+                             {editingAppointment.status === 'scheduled' && <button type="button" className="btn btn-success" onClick={() => onUpsertAppointment({ ...editingAppointment, status: 'completed' })}>Görüşmeyi Tamamla</button>}
                         </div>
                     </div>
                 </div>
@@ -179,8 +188,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                                     <div className="checklist-group">
                                         <div className="checklist-item"><input type="checkbox" name="wants-description" defaultChecked disabled={isGenerating}/><label>Açıklama</label></div>
                                         <div className="checklist-item"><input type="checkbox" name="wants-image" defaultChecked disabled={isGenerating}/><label>Görsel</label></div>
-                                        <div className="checklist-item"><input type="checkbox" name="wants-video" defaultChecked disabled={isGenerating}/><label>Video</label></div>
-                                        <div className="checklist-item"><input type="checkbox" name="wants-audio" defaultChecked disabled={isGenerating}/><label>Sesli Anlatım</label></div>
+                                        <div className="checklist-item"><input type="checkbox" name="wants-video" disabled={isGenerating}/><label>Video</label></div>
+                                        <div className="checklist-item"><input type="checkbox" name="wants-audio" disabled={isGenerating}/><label>Sesli Anlatım</label></div>
                                     </div>
                                 </div>
                                 <button type="submit" className="btn btn-primary" disabled={isGenerating}>{isGenerating ? 'Oluşturuluyor...' : 'Metinden Oluştur'}</button>
@@ -205,7 +214,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                             </div>
                         </form>
 
-                        {(isGenerating || generationStatus) && <p className="generation-status">{generationStatus}</p>}
+                        {(generationStatus) && <p className="generation-status">{generationStatus}</p>}
                     </>
                 )}
 
