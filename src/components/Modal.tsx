@@ -189,7 +189,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                                 <div className="form-group"><label htmlFor="prompt">Egzersiz Açıklaması</label><textarea id="prompt" name="prompt" rows={2} placeholder="Örn: Oturarak yapılan basit bir diz güçlendirme egzersizi" required disabled={isGenerating}/></div>
                                 <div className="form-group">
                                     <label>Ek Materyaller Oluşturulsun mu?</label>
-                                    <p style={{fontSize: '0.9rem', color: 'var(--secondary-color)', marginTop: '-0.5rem', marginBottom: '0.5rem'}}>Yapay zeka, verdiğiniz istemden yola çıkarak egzersiz için bir isim, açıklama, set ve tekrar sayısı önerecektir. Ayrıca, aşağıdaki görsel ve işitsel materyallerin de oluşturulmasını isteyebilirsiniz:</p>
+                                    <p style={{fontSize: '0.9rem', color: 'var(--secondary-color)', marginTop: '-0.5rem', marginBottom: '0.5rem'}}>
+                                        Yapay zeka, verdiğiniz isteme göre egzersiz için bir <strong>isim, açıklama, set ve tekrar sayısı</strong> gibi temel detayları otomatik olarak oluşturacaktır. 
+                                        Dilerseniz, bu temel bilgilere ek olarak aşağıdaki isteğe bağlı materyallerin de üretilmesini sağlayabilirsiniz:
+                                    </p>
                                     <div className="checklist-group">
                                         <div className="checklist-item"><input type="checkbox" name="wants-image" defaultChecked disabled={isGenerating}/><label>Görsel</label></div>
                                         <div className="checklist-item"><input type="checkbox" name="wants-video" disabled={isGenerating}/><label>Video</label></div>
