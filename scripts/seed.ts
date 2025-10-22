@@ -73,53 +73,96 @@ const MOCK_FAQS: FAQItem[] = [
 
 export async function seed(sql: postgres.Sql) {
     await sql`
-        INSERT INTO therapists (id, name, email, profile_image_url, bio, patient_ids)
-        SELECT id, name, email, profile_image_url, bio, patient_ids::jsonb FROM ${sql(MOCK_THERAPISTS, 'id', 'name', 'email', 'profileImageUrl', 'bio', 'patientIds')}
+        INSERT INTO therapists ${sql(MOCK_THERAPISTS.map(t => ({
+            id: t.id,
+            name: t.name,
+            email: t.email,
+            profile_image_url: t.profileImageUrl,
+            bio: t.bio,
+            patient_ids: t.patientIds as any,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO patients (id, name, email, therapist_id, service_ids, pain_journal, exercise_log, clinical_notes)
-        SELECT id, name, email, therapist_id, service_ids::jsonb, pain_journal::jsonb, exercise_log::jsonb, clinical_notes::jsonb FROM ${sql(MOCK_PATIENTS, 'id', 'name', 'email', 'therapistId', 'serviceIds', 'painJournal', 'exerciseLog', 'clinicalNotes')}
+        INSERT INTO patients ${sql(MOCK_PATIENTS.map(p => ({
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            therapist_id: p.therapistId,
+            service_ids: p.serviceIds as any,
+            pain_journal: p.painJournal as any,
+            exercise_log: p.exerciseLog as any,
+            clinical_notes: p.clinicalNotes as any,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO categories (id, name)
-        SELECT id, name FROM ${sql(MOCK_CATEGORIES, 'id', 'name')}
+        INSERT INTO categories ${sql(MOCK_CATEGORIES)}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO exercises (id, name, description, sets, reps, image_url, video_url, audio_url)
-        SELECT id, name, description, sets, reps, image_url, video_url, audio_url FROM ${sql(MOCK_EXERCISES, 'id', 'name', 'description', 'sets', 'reps', 'imageUrl', 'videoUrl', 'audioUrl')}
+        INSERT INTO exercises ${sql(MOCK_EXERCISES.map(e => ({
+            id: e.id,
+            name: e.name,
+            description: e.description,
+            sets: e.sets,
+            reps: e.reps,
+            image_url: e.imageUrl,
+            video_url: e.videoUrl,
+            audio_url: e.audioUrl,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO therapy_programs (id, name, description, category_id, exercise_ids)
-        SELECT id, name, description, category_id, exercise_ids::jsonb FROM ${sql(MOCK_PROGRAMS, 'id', 'name', 'description', 'categoryId', 'exerciseIds')}
+        INSERT INTO therapy_programs ${sql(MOCK_PROGRAMS.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            category_id: p.categoryId,
+            exercise_ids: p.exerciseIds as any,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO appointments (id, patient_id, therapist_id, start_time, end_time, status, notes, reminder_sent)
-        SELECT id, patient_id, therapist_id, start_time, end_time, status, notes, reminder_sent FROM ${sql(MOCK_APPOINTMENTS.map(a => ({...a, start_time: a.start, end_time: a.end})), 'id', 'patientId', 'therapistId', 'start_time', 'end_time', 'status', 'notes', 'reminderSent')}
+        INSERT INTO appointments ${sql(MOCK_APPOINTMENTS.map(a => ({
+            id: a.id,
+            patient_id: a.patientId,
+            therapist_id: a.therapistId,
+            start_time: a.start,
+            end_time: a.end,
+            status: a.status,
+            notes: a.notes,
+            reminder_sent: a.reminderSent,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO messages (id, from_user_id, to_user_id, text_content, timestamp, file_data)
-        SELECT id, from_user_id, to_user_id, text_content, timestamp, file_data::jsonb FROM ${sql(MOCK_MESSAGES.map(m => ({...m, from_user_id: m.from, to_user_id: m.to, text_content: m.text, file_data: m.file || null})), 'id', 'from_user_id', 'to_user_id', 'text_content', 'timestamp', 'file_data')}
+        INSERT INTO messages ${sql(MOCK_MESSAGES.map(m => ({
+            id: m.id,
+            from_user_id: m.from,
+            to_user_id: m.to,
+            text_content: m.text,
+            timestamp: m.timestamp,
+            file_data: m.file || null as any,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO notifications (id, user_id, text_content, timestamp, is_read)
-        SELECT id, user_id, text_content, timestamp, is_read FROM ${sql(MOCK_NOTIFICATIONS.map(n => ({...n, user_id: n.userId, text_content: n.text, is_read: n.read})), 'id', 'user_id', 'text_content', 'timestamp', 'is_read')}
+        INSERT INTO notifications ${sql(MOCK_NOTIFICATIONS.map(n => ({
+            id: n.id,
+            user_id: n.userId,
+            text_content: n.text,
+            timestamp: n.timestamp,
+            is_read: n.read,
+        })))}
         ON CONFLICT (id) DO NOTHING;
     `;
      await sql`
-        INSERT INTO testimonials (id, quote, author)
-        SELECT id, quote, author FROM ${sql(MOCK_TESTIMONIALS, 'id', 'quote', 'author')}
+        INSERT INTO testimonials ${sql(MOCK_TESTIMONIALS)}
         ON CONFLICT (id) DO NOTHING;
     `;
     await sql`
-        INSERT INTO faqs (id, question, answer)
-        SELECT id, question, answer FROM ${sql(MOCK_FAQS, 'id', 'question', 'answer')}
+        INSERT INTO faqs ${sql(MOCK_FAQS)}
         ON CONFLICT (id) DO NOTHING;
     `;
     console.log('Database seeded successfully.');
