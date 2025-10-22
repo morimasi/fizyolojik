@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const suggestionPrompt = `Sen profesyonel ve yardımsever bir fizyoterapi asistanısın. Bir danışan ve terapist arasındaki son konuşma dökümü aşağıdadır:\n---\n${conversationContext}\n---\nBu konuşma geçmişine dayanarak, terapistin incelemesi için güvenli, empatik ve profesyonel bir yanıt önerisi oluştur. Yanıt Türkçe olmalıdır. Doğrudan tıbbi tavsiye verme, bunun yerine danışanı durumunu daha ayrıntılı açıklamaya teşvik et veya bir sonraki seansta konuyu tartışmayı öner. Sadece terapistin söyleyeceği yanıt metnini oluştur, herhangi bir ek açıklama yapma.`;
             
                 const suggestionResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: suggestionPrompt });
-                result = suggestionResponse.text;
+                result = suggestionResponse.text || 'Üzgünüm, şu anda bir öneri oluşturamıyorum. Lütfen daha sonra tekrar deneyin.';
                 break;
 
             case 'generateExercise':
@@ -56,7 +56,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             responseSchema: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, sets: { type: Type.INTEGER }, reps: { type: Type.INTEGER } }, required: ["name", "description", "sets", "reps"] }
                         }
                     });
-                    generatedData = { ...generatedData, ...JSON.parse(response.text) };
+                    const responseText = response.text;
+                    if (!responseText) {
+                        throw new Error('Yapay zeka egzersiz için geçerli bir metin oluşturamadı.');
+                    }
+                    try {
+                        generatedData = { ...generatedData, ...JSON.parse(responseText) };
+                    } catch (e) {
+                        console.error("Failed to parse JSON from AI for exercise description:", responseText);
+                        throw new Error("Yapay zeka geçersiz bir formatta yanıt verdi.");
+                    }
                 }
                 const descriptionForMedia = generatedData.description || `bir kişinin "${prompt}" hareketini yaptığı`;
 
@@ -103,14 +112,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const clinicalNotesString = patient.clinicalNotes.length > 0 ? patient.clinicalNotes.map(n => `Tarih: ${new Date(n.date).toLocaleDateString('tr-TR')}\nSübjektif: ${n.subjective}\nObjektif: ${n.objective}\nDeğerlendirme: ${n.assessment}\nPlan: ${n.plan}`).join('\n---\n') : "Danışan için klinik not bulunmuyor.";
                 const summaryPrompt = `Sen, bir fizyoterapiste yardımcı olan bir yapay zeka asistanısın. Görevin, bir danışanın verilerini analiz ederek terapisti için kısa ve öz bir ilerleme özeti oluşturmaktır. Veriler, danışanın ağrı günlüğünü, egzersiz kayıtlarını ve terapistin yazdığı klinik notları içermektedir.\n\n**Danışan Verileri:**\n\n*   **Ağrı Günlüğü:**\n${painJournalString}\n\n*   **Egzersiz Kayıtları:**\n${exerciseLogString}\n\n*   **Klinik Notlar (SOAP formatı):**\n${clinicalNotesString}\n\n**Görevin:**\n\nYukarıdaki verilere dayanarak, Türkçe dilinde ve Markdown formatında bir özet oluştur. Özet şu bölümleri içermelidir:\n*   **Ağrı Eğilimi:** Ağrı günlüğünü analiz et. Ağrı genel olarak artıyor mu, azalıyor mu yoksa dalgalı mı? Yüksek veya düşük ağrı günleriyle ilgili özel notlardan bahset.\n*   **Egzersiz Uyumu:** Egzersiz kayıtlarını analiz et. Danışan egzersizlerini düzenli yapıyor mu? Kayıtlarda herhangi bir düzen veya boşluk var mı?\n*   **Önemli Gözlemler:** Tüm kaynaklardan gelen bilgileri birleştir. Egzersiz tamamlama ile ağrı seviyeleri arasında bir ilişki var mı? Notlardaki danışan geri bildirimleri verilerle örtüşüyor mu? Olası endişeleri veya olumlu gelişmeleri vurgula.\n\nÖzeti nesnel ve verilere dayalı tut. Değerlendirmesine yardımcı olmak için bunu doğrudan terapiste sun.`;
                 const summaryResponse = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: summaryPrompt });
-                result = summaryResponse.text;
+                result = summaryResponse.text || "Danışan özeti oluşturulurken bir hata oluştu.";
                 break;
             
             case 'getAdminSummary':
                  const stats = payload.stats;
                  const adminPrompt = `Sen bir sağlık yöneticisine veri analizi sunan bir yapay zeka asistanısın. Aşağıda bir fizyoterapi kliniğinin belirli bir dönemdeki performans metrikleri bulunmaktadır:\n- Toplam Aktif Danışan: ${stats.totalPatients}\n- Toplam Terapist: ${stats.totalTherapists}\n- Tamamlanan Randevu Sayısı: ${stats.completedAppointments}\n- Ortalama Danışan Etkileşimi (Egzersiz Tamamlama Oranı): %${stats.patientEngagement.toFixed(1)}\n\nBu verilere dayanarak, klinik yöneticisi için kısa, profesyonel ve eyleme geçirilebilir bir özet oluştur. Özet, Markdown formatında olmalı ve şu bölümleri içermelidir:\n1.  **Genel Performans:** Rakamların genel bir değerlendirmesi.\n2.  **Güçlü Yönler:** Özellikle iyi olan metrikleri vurgula.\n3.  **Geliştirilebilecek Alanlar:** Düşük görünen veya dikkat edilmesi gereken metrikler hakkında önerilerde bulun. Örneğin, etkileşim oranı düşükse ne yapılabilir?\n\nYanıtı doğrudan yöneticiye hitap eder gibi yaz ve Türkçe olsun.`;
                  const adminResponse = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: adminPrompt });
-                 result = adminResponse.text;
+                 result = adminResponse.text || "Yönetici özeti oluşturulurken bir hata oluştu.";
                  break;
 
             case 'getFaqAnswer':
@@ -118,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const faqContext = faqs.map((faq: FAQItem) => `Soru: ${faq.question}\nCevap: ${faq.answer}`).join('\n\n');
                 const faqPrompt = `Sen bir müşteri hizmetleri yapay zekasısın. Aşağıda bir Sıkça Sorulan Sorular (SSS) listesi ve bir kullanıcının sorusu bulunmaktadır.\n---\n**SSS LİSTESİ:**\n${faqContext}\n---\n**KULLANICI SORUSU:** "${userQuestion}"\n\nGörevin: Kullanıcının sorusuna en uygun cevabı SSS listesinden bulup döndürmektir.\n- Eğer doğrudan eşleşen bir soru varsa, o sorunun cevabını ver.\n- Eğer doğrudan eşleşme yoksa, anlamsal olarak en yakın sorunun cevabını ver.\n- Eğer hiçbir soru kullanıcının sorusuyla ilgili değilse, "Üzgünüm, sorunuzla ilgili bir cevap bulamadım. Lütfen daha farklı bir şekilde sormayı deneyin veya destek ekibimizle iletişime geçin." yanıtını ver.\nSadece cevabı döndür, ek bir açıklama yapma.`;
                 const faqResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: faqPrompt });
-                result = faqResponse.text;
+                result = faqResponse.text || "Üzgünüm, sorunuza bir yanıt bulunamadı.";
                 break;
             
             case 'generateVideo_start':
