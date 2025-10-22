@@ -1,9 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import postgres from 'postgres';
-import { promises as fs } from 'fs';
-import path from 'path';
 import { seed } from '../scripts/seed';
 import { AppData } from '../src/services/apiService';
+import { schemaSql } from '../scripts/schema';
 
 const sql = postgres(process.env.POSTGRES_URL!, {
     ssl: 'require',
@@ -52,8 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         console.log('All tables dropped.');
 
-        // Recreate schema
-        const schemaSql = await fs.readFile(path.join(process.cwd(), 'scripts/schema.sql'), 'utf8');
+        // Recreate schema from imported SQL string
         await sql.unsafe(schemaSql);
         console.log('Schema recreated.');
 
