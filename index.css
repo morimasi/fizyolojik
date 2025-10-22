@@ -408,6 +408,10 @@ body {
 .exercise-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem; flex-shrink: 0; margin-left: 1rem; justify-content: space-between; height: 100%; }
 .video-icon, .sound-icon { cursor: pointer; font-size: 1.2rem; transition: transform 0.2s; }
 .video-icon:hover, .sound-icon:hover { transform: scale(1.2); }
+.media-controls { display: flex; align-items: center; gap: 1rem; margin-top: 10px; width: 100%; }
+.control-group { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+.audio-player-container { width: 100%; }
+
 
 /* Therapist Patient Detail View */
 .patient-detail-container { position: relative; }
@@ -572,6 +576,34 @@ body {
 .status-badge.status-canceled { background-color: var(--danger-color); }
 .appointment-card.status-completed { background-color: color-mix(in srgb, var(--success-color) 10%, var(--light-color)); opacity: 0.8; }
 .appointment-card.status-cancelled { background-color: color-mix(in srgb, var(--danger-color) 10%, var(--light-color)); opacity: 0.7; }
+/* --- Appointment Modal Details --- */
+.appointment-details-view {
+  font-size: 1.1rem;
+}
+.appointment-details-view p {
+  margin-bottom: 1rem;
+  line-height: 1.7;
+}
+.appointment-details-view strong {
+  color: var(--dark-color);
+  margin-right: 0.5rem;
+}
+.appointment-notes {
+  background-color: var(--section-bg-color);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1.5rem;
+}
+.appointment-notes h5 {
+  margin-bottom: 0.5rem;
+  color: var(--primary-color);
+}
+.modal-footer.appointment-actions {
+  justify-content: space-between;
+}
+.modal-footer.appointment-actions .btn-danger {
+  margin-right: auto;
+}
 
 /* Therapist Calendar */
 .therapist-dashboard-layout {
@@ -651,3 +683,52 @@ body {
 /* View transition animation */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .view-enter { animation: fadeIn 0.4s ease-out; }
+
+/* Loader and Error Display */
+.full-screen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  color: white;
+  text-align: center;
+}
+
+.loader {
+  border: 8px solid var(--section-bg-color);
+  border-top: 8px solid var(--primary-color);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-display {
+    background-color: var(--card-background);
+    color: var(--text-color);
+    padding: 2rem 3rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.error-display h3 {
+    color: var(--danger-color);
+    margin-bottom: 1rem;
+}
+
+.error-display p {
+    margin-bottom: 1.5rem;
+}

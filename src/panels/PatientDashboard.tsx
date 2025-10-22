@@ -15,7 +15,6 @@ interface PatientDashboardProps {
     exercises: Exercise[];
     appointments: Appointment[];
     onStartChat: (therapist: Therapist) => void;
-    setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
     onCompleteExercise: (patientId: string, exerciseId: string) => void;
     onAddJournalEntry: (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => void;
 }
@@ -69,7 +68,7 @@ const ExerciseCalendar: React.FC<{patient: Patient}> = ({ patient }) => {
 };
 
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist, programs, exercises, appointments, onStartChat, setAppointments, onCompleteExercise, onAddJournalEntry }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient, therapist, programs, exercises, appointments, onStartChat, onCompleteExercise, onAddJournalEntry }) => {
     const [view, setView] = useState<'summary' | 'programs' | 'journal' | 'appointments'>('summary');
     const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string; exerciseId: string } | null>(null);
     const [playingAudio, setPlayingAudio] = useState<string | null>(null);

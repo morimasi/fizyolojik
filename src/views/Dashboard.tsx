@@ -2,9 +2,9 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 // FIX: Added Admin and PainJournalEntry type to import
-import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, Admin, Theme } from '../types';
+import { Appointment, Category, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, Admin, Theme } from '../types';
 
 import AdminDashboard from '../panels/AdminDashboard';
 import TherapistDashboard from '../panels/TherapistDashboard';
@@ -33,11 +33,10 @@ interface DashboardProps {
     onSendMessage: (text: string, file?: File | null) => void;
     activeChatPartner: Patient | Therapist | null;
     setActiveChatPartner: React.Dispatch<React.SetStateAction<Patient | Therapist | null>>;
-    setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
-    setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
-    setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
+    setNotifications: (notifications: Notification[]) => Promise<void>;
     onCompleteExercise: (patientId: string, exerciseId: string) => void;
     onAddJournalEntry: (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => void;
+    onUpsertAppointment: (app: Partial<Appointment> & { id?: string }) => void;
     onCategoryDelete: (id: string) => void;
     onServiceDelete: (id: string) => void;
     onPatientDelete: (patient: Patient) => void;
@@ -47,51 +46,15 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = (props) => {
-    const { currentUser, onLogout, notifications, therapists, patients, setActiveChatPartner, activeChatPartner, setNotifications, theme, setTheme } = props;
+    const { currentUser, onLogout, notifications, therapists, setActiveChatPartner, activeChatPartner, setNotifications, theme, setTheme } = props;
     const [showNotifications, setShowNotifications] = useState(false);
     
-    useEffect(() => {
-        // Auto update appointment status
-        const now = Date.now();
-        const updatedAppointments = props.appointments.map(app => {
-            if (app.status === 'scheduled' && now > app.end) {
-                // Send notification to therapist
-                 const newNotification: Notification = {
-                    id: crypto.randomUUID(),
-                    userId: app.therapistId,
-                    text: `Danışanınız ${patients.find(p=>p.id === app.patientId)?.name} ile olan randevunuz tamamlandı. Klinik not eklemeyi unutmayın.`,
-                    timestamp: now,
-                    read: false,
-                };
-                setNotifications(prev => [...prev, newNotification]);
-                return { ...app, status: 'completed' as const };
-            }
-            return app;
-        });
-
-        // Auto send reminders
-        updatedAppointments.forEach(app => {
-            const twentyFourHours = 24 * 60 * 60 * 1000;
-            if (app.status === 'scheduled' && !app.reminderSent && app.start > now && (app.start - now < twentyFourHours)) {
-                 const patientNotification: Notification = { id: crypto.randomUUID(), userId: app.patientId, text: `Yaklaşan randevunuz yarın saat ${new Date(app.start).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'})}'de.`, timestamp: now, read: false };
-                 const therapistNotification: Notification = { id: crypto.randomUUID(), userId: app.therapistId, text: `${patients.find(p=>p.id === app.patientId)?.name} ile yarın saat ${new Date(app.start).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'})}'de randevunuz var.`, timestamp: now, read: false };
-                 setNotifications(prev => [...prev, patientNotification, therapistNotification]);
-                 app.reminderSent = true;
-            }
-        });
-
-        if (JSON.stringify(updatedAppointments) !== JSON.stringify(props.appointments)) {
-            props.setAppointments(updatedAppointments);
-        }
-
-    }, [props.appointments, props.setAppointments, setNotifications, patients]);
-
-
     const currentUserNotifications = 'id' in currentUser ? notifications.filter(n => n.userId === currentUser.id).sort((a, b) => b.timestamp - a.timestamp) : [];
     const unreadCount = currentUserNotifications.filter(n => !n.read).length;
 
     const handleNotificationClick = (notification: Notification) => {
-        setNotifications(prev => prev.map(n => n.id === notification.id ? {...n, read: true} : n));
+        const newNotifications = notifications.map(n => n.id === notification.id ? {...n, read: true} : n);
+        setNotifications(newNotifications);
         setShowNotifications(false);
     };
 
@@ -110,6 +73,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 therapists={props.therapists}
                 onStartChat={handleStartChat}
                 openModal={props.openModal}
+                onUpsertAppointment={props.onUpsertAppointment}
             />;
         } else if ('therapistId' in currentUser) { // Patient
             const therapist = therapists.find(t => t.id === currentUser.therapistId);
@@ -120,7 +84,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 exercises={props.exercises}
                 appointments={props.appointments}
                 onStartChat={handleStartChat}
-                setAppointments={props.setAppointments}
                 onCompleteExercise={props.onCompleteExercise}
                 onAddJournalEntry={props.onAddJournalEntry}
             />;

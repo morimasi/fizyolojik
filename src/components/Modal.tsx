@@ -3,23 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect, useRef } from 'react';
-import { Category, EditableItem, Exercise, Patient, TherapyProgram, Therapist } from '../types';
+import { Category, EditableItem, Exercise, Patient, TherapyProgram, Therapist, Appointment } from '../types';
 import { generateExerciseWithAI, generateVideoFromImageAI } from '../services/aiService';
 
 interface ModalProps {
     isOpen: boolean;
     mode: 'add' | 'edit' | null;
-    type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | null;
+    type: 'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | 'appointment' | null;
     editingItem: EditableItem | null;
     onClose: () => void;
     onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+    onUpsertAppointment: (app: Partial<Appointment> & { id?: string }) => void;
     categories: Category[];
     exercises: Exercise[];
     therapists: Therapist[];
+    patients: Patient[];
     programs: TherapyProgram[];
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose, onSubmit, categories, exercises, therapists, programs }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose, onSubmit, onUpsertAppointment, categories, exercises, therapists, patients, programs }) => {
     const [isGeneratingExercise, setIsGeneratingExercise] = useState(false);
     const [generationStatus, setGenerationStatus] = useState('');
     const [generatedExerciseData, setGeneratedExerciseData] = useState<Partial<Exercise> | null>(null);
@@ -117,21 +119,84 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
     };
     
     const isCategory = type === 'category', isService = type === 'service', isPatient = type === 'patient',
-          isExercise = type === 'exercise', isTherapist = type === 'therapist', isClinicalNote = type === 'clinicalNote';
+          isExercise = type === 'exercise', isTherapist = type === 'therapist', isClinicalNote = type === 'clinicalNote', isAppointment = type === 'appointment';
     
-    const title = `${mode === 'add' ? 'Yeni Ekle' : 'Düzenle'}: ${isCategory ? 'Kategori' : isService ? 'Program' : isPatient ? 'Danışan' : isExercise ? 'Egzersiz' : isTherapist ? 'Terapist' : 'Klinik Not (SOAP)'}`;
+    let title = `${mode === 'add' ? 'Yeni Ekle' : 'Düzenle'}: `;
+    if (isCategory) title += 'Kategori';
+    else if (isService) title += 'Program';
+    else if (isPatient) title += 'Danışan';
+    else if (isExercise) title += 'Egzersiz';
+    else if (isTherapist) title += 'Terapist';
+    else if (isClinicalNote) title += 'Klinik Not (SOAP)';
+    else if (isAppointment) title = mode === 'add' ? 'Yeni Randevu Oluştur' : 'Randevu Detayları';
     
     const editingPatient = isPatient ? editingItem as Patient : null;
     const editingProgram = isService ? editingItem as TherapyProgram : null;
     const editingExercise = isExercise ? editingItem as Exercise : null;
     const editingTherapist = isTherapist ? editingItem as Therapist : null;
+    const editingAppointment = isAppointment ? editingItem as Appointment : null;
     const mergedExerciseData = { ...editingExercise, ...generatedExerciseData };
+
+    const renderAppointmentContent = () => {
+        if (!editingAppointment) return null;
+
+        if (mode === 'add') {
+             const therapistPatients = patients.filter(p => p.therapistId === editingAppointment.therapistId);
+            return (
+                 <form onSubmit={onSubmit} className="modal-form">
+                    <p><strong>Tarih & Saat:</strong> {new Date(editingAppointment.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                     <div className="form-group">
+                        <label htmlFor="patientId">Danışan</label>
+                        <select id="patientId" name="patientId" required>
+                             {therapistPatients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="notes">Randevu Notları</label>
+                        <textarea id="notes" name="notes" rows={4} placeholder="Randevu için kısa bir not veya başlık girin..."></textarea>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>İptal</button>
+                        <button type="submit" className="btn btn-primary">Randevu Oluştur</button>
+                    </div>
+                 </form>
+            )
+        }
+
+        if (mode === 'edit') {
+            const patient = patients.find(p => p.id === editingAppointment.patientId);
+            return (
+                <div className="appointment-details-view">
+                    <p><strong>Danışan:</strong> {patient?.name || 'Bilinmiyor'}</p>
+                    <p><strong>Tarih & Saat:</strong> {new Date(editingAppointment.start).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                    <p><strong>Durum:</strong> <span className={`status-badge status-${editingAppointment.status}`}>{editingAppointment.status}</span></p>
+                    {editingAppointment.notes && (
+                        <div className="appointment-notes">
+                            <h5>Randevu Notları</h5>
+                            <p>{editingAppointment.notes}</p>
+                        </div>
+                    )}
+                     <div className="modal-footer appointment-actions">
+                        <button type="button" className="btn btn-danger" onClick={() => onUpsertAppointment({ ...editingAppointment, status: 'canceled' })}>Randevuyu İptal Et</button>
+                        <div>
+                            <button type="button" className="btn btn-secondary" onClick={onClose}>Kapat</button>
+                            <button type="button" className="btn btn-success" onClick={() => onUpsertAppointment({ ...editingAppointment, status: 'completed' })}>Görüşmeyi Tamamla</button>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+        return null;
+    }
+
 
     return (
         <div className={`modal-overlay ${isOpen ? 'open' : ''}`} onClick={onClose}>
             <div className={`modal-content ${isOpen ? 'open' : ''}`} onClick={e => e.stopPropagation()}>
                 <div className="modal-header"><h3>{title}</h3><button onClick={onClose} className="close-button">&times;</button></div>
                 
+                {isAppointment && renderAppointmentContent()}
+
                 {isExercise && mode === 'add' && !generatedExerciseData && (
                     <>
                         <form onSubmit={handleGenerateExercise}>
@@ -175,11 +240,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                     </>
                 )}
 
-                {(!isExercise || mode === 'edit' || (mode === 'add' && generatedExerciseData) || isClinicalNote) && (
+                {(!isExercise || mode === 'edit' || (mode === 'add' && generatedExerciseData) || isClinicalNote || isCategory || isService || isPatient || isTherapist) && (
                     <form onSubmit={onSubmit} className="modal-form">
                         <input type="hidden" name="generatedData" value={JSON.stringify(generatedExerciseData || {})} />
                         
-                        {!isClinicalNote && <div className="form-group"><label htmlFor="name">İsim</label><input type="text" id="name" name="name" defaultValue={mergedExerciseData?.name || (editingItem && 'name' in editingItem ? editingItem.name : '') || ''} required /></div>}
+                        {!isClinicalNote && !isAppointment && <div className="form-group"><label htmlFor="name">İsim</label><input type="text" id="name" name="name" defaultValue={mergedExerciseData?.name || (editingItem && 'name' in editingItem ? editingItem.name : '') || ''} required /></div>}
                         {(isService || isExercise) && <div className="form-group"><label htmlFor="description">Açıklama</label><textarea id="description" name="description" rows={4} defaultValue={mergedExerciseData?.description || (editingItem && 'description' in editingItem ? editingItem.description : '') || ''} required /></div>}
                         {isService && (<>
                             <div className="form-group"><label htmlFor="categoryId">Kategori</label><select name="categoryId" id="categoryId" defaultValue={editingProgram?.categoryId} required>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
@@ -210,7 +275,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                             <div className="form-group"><label htmlFor="assessment">Analiz (A)</label><textarea id="assessment" name="assessment" rows={3} placeholder="Profesyonel değerlendirme, tanı..." required></textarea></div>
                             <div className="form-group"><label htmlFor="plan">Plan (P)</label><textarea id="plan" name="plan" rows={3} placeholder="Tedavi planı, sonraki adımlar..." required></textarea></div>
                         </>)}
-                        <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={onClose}>İptal</button><button type="submit" className="btn btn-primary">Kaydet</button></div>
+                        
+                        {!isAppointment && (
+                             <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={onClose}>İptal</button><button type="submit" className="btn btn-primary">Kaydet</button></div>
+                        )}
                     </form>
                 )}
             </div>

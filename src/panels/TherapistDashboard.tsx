@@ -18,9 +18,10 @@ interface TherapistDashboardProps {
     therapists: Therapist[];
     onStartChat: (patient: Patient) => void;
     openModal: (type: 'clinicalNote' | 'appointment', mode: 'add' | 'edit', item?: EditableItem | null) => void;
+    onUpsertAppointment: (app: Partial<Appointment> & { id?: string }) => void;
 }
 
-const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, patients, programs, appointments, messages, onStartChat, openModal, therapists }) => {
+const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, patients, programs, appointments, messages, onStartChat, openModal, onUpsertAppointment, therapists }) => {
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [detailView, setDetailView] = useState<'progress' | 'notes' | 'appointments'>('progress');
     const [aiSummary, setAiSummary] = useState('');
@@ -129,7 +130,7 @@ const TherapistDashboard: React.FC<TherapistDashboardProps> = ({ therapist, pati
                     <div className="appointment-list">
                         <div className="admin-actions">
                            <h4>Randevu Geçmişi</h4>
-                           <button className="btn btn-success" onClick={() => { /* Prefill patient */ }}>+ Yeni Randevu Oluştur</button>
+                           <button className="btn btn-success" onClick={() => openModal('appointment', 'add', { therapistId: therapist.id, patientId: selectedPatient.id, start: new Date().getTime() })}>+ Yeni Randevu Oluştur</button>
                         </div>
                          {patientAppointments.length > 0 ? patientAppointments.map(app => (
                             <div key={app.id} className={`appointment-card status-${app.status}`}>

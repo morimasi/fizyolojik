@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect } from 'react';
-import { MOCK_DATA } from './data';
 import { usePersistentState } from './hooks/usePersistentState';
-// FIX: Added Admin and PainJournalEntry to import
+import { apiService, AppData } from './services/apiService';
 import { Appointment, Category, ClinicalNote, EditableItem, Exercise, Message, Notification, Patient, PainJournalEntry, TherapyProgram, Therapist, User, UserRole, Admin, Testimonial, Theme, FAQItem } from './types';
 
 import LandingPage from './views/LandingPage';
@@ -13,33 +12,73 @@ import RoleSelection from './views/RoleSelection';
 import Login from './views/Login';
 import Dashboard from './views/Dashboard';
 import Modal from './components/Modal';
+import FullScreenLoader from './components/FullScreenLoader';
+import ErrorDisplay from './components/ErrorDisplay';
 import { fileToDataURL } from './utils';
 
 type View = 'landing' | 'roleSelection' | 'login' | 'dashboard';
 
 const App: React.FC = () => {
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+
     const [view, setView] = useState<View>('landing');
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
     const [loginError, setLoginError] = useState('');
     
-    // FIX: Added Admin to currentUser state type.
+    // Persistent state for session/UI
     const [currentUser, setCurrentUser] = usePersistentState<User | Therapist | Patient | Admin | null>('currentUser', null);
-    const [categories, setCategories] = usePersistentState<Category[]>('categories', MOCK_DATA.categories);
-    const [programs, setPrograms] = usePersistentState<TherapyProgram[]>('programs', MOCK_DATA.programs);
-    const [patients, setPatients] = usePersistentState<Patient[]>('patients', MOCK_DATA.patients);
-    const [exercises, setExercises] = usePersistentState<Exercise[]>('exercises', MOCK_DATA.exercises);
-    const [appointments, setAppointments] = usePersistentState<Appointment[]>('appointments', MOCK_DATA.appointments);
-    const [therapists, setTherapists] = usePersistentState<Therapist[]>('therapists', MOCK_DATA.therapists);
-    const [messages, setMessages] = usePersistentState<Message[]>('messages', MOCK_DATA.messages);
-    const [notifications, setNotifications] = usePersistentState<Notification[]>('notifications', MOCK_DATA.notifications);
-    const [testimonials, setTestimonials] = usePersistentState<Testimonial[]>('testimonials', MOCK_DATA.testimonials);
-    const [faqs, setFaqs] = usePersistentState<FAQItem[]>('faqs', MOCK_DATA.faqs);
     const [theme, setTheme] = usePersistentState<Theme>('theme', 'light');
+
+    // Data state
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [programs, setPrograms] = useState<TherapyProgram[]>([]);
+    const [patients, setPatients] = useState<Patient[]>([]);
+    const [exercises, setExercises] = useState<Exercise[]>([]);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [therapists, setTherapists] = useState<Therapist[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    const [faqs, setFaqs] = useState<FAQItem[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
+    // FIX: Added 'appointment' to the state's type definition to match the 'openModal' function parameter.
     const [modalType, setModalType] = useState<'category' | 'service' | 'patient' | 'exercise' | 'therapist' | 'clinicalNote' | 'appointment' | null>(null);
     const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
+    const [activeChatPartner, setActiveChatPartner] = useState<Patient | Therapist | null>(null);
+    
+    const setAllData = (data: AppData) => {
+        setCategories(data.categories);
+        setPrograms(data.programs);
+        setPatients(data.patients);
+        setExercises(data.exercises);
+        setAppointments(data.appointments);
+        setTherapists(data.therapists);
+        setMessages(data.messages);
+        setNotifications(data.notifications);
+        setTestimonials(data.testimonials);
+        setFaqs(data.faqs);
+    };
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const data = await apiService.getInitialData();
+            setAllData(data);
+        } catch (err) {
+            setError(err instanceof Error ? err : new Error('Bilinmeyen bir hata oluştu.'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
@@ -89,10 +128,15 @@ const App: React.FC = () => {
         setView('landing');
     };
 
-    const handleResetData = () => {
+    const handleResetData = async () => {
         if (window.confirm('Emin misiniz? Tüm değişiklikler kaybolacak ve uygulama başlangıç durumuna dönecektir.')) {
-            localStorage.clear();
-            window.location.reload();
+            setIsLoading(true);
+            const data = await apiService.resetData();
+            setAllData(data);
+            setCurrentUser(null);
+            setSelectedRole(null);
+            setView('landing');
+            setIsLoading(false);
         }
     };
     
@@ -106,17 +150,23 @@ const App: React.FC = () => {
             fileData = { name: file.name, mimeType: file.type, url: dataUrl };
         }
         const newMessage: Message = { id: crypto.randomUUID(), from: currentUserId, to: partnerId, text, timestamp: Date.now(), file: fileData, };
-        setMessages(prev => [...prev, newMessage]);
+        const newMessages = [...messages, newMessage];
+        setMessages(newMessages);
+
         const recipient = therapists.find(t => t.id === partnerId) || patients.find(p => p.id === partnerId);
         if (recipient) {
             const newNotification: Notification = { id: crypto.randomUUID(), userId: recipient.id, text: `${currentUser.name} tarafından yeni bir mesajınız var.`, timestamp: Date.now(), read: false, };
-            setNotifications(prev => [...prev, newNotification]);
+            const newNotifications = [...notifications, newNotification];
+            setNotifications(newNotifications);
+            await apiService.updateData({ messages: newMessages, notifications: newNotifications });
+            return;
         }
+        await apiService.updateData({ messages: newMessages });
     };
     
-    const handleCompleteExercise = (patientId: string, exerciseId: string) => {
+    const handleCompleteExercise = async (patientId: string, exerciseId: string) => {
         const today = new Date().toISOString().split('T')[0];
-        setPatients(prev => prev.map(p => {
+        const newPatients = patients.map(p => {
             if (p.id !== patientId) return p;
             const newLog = { ...p.exerciseLog };
             const todayLog = newLog[today] || [];
@@ -124,62 +174,126 @@ const App: React.FC = () => {
                 newLog[today] = [...todayLog, exerciseId];
             }
             return { ...p, exerciseLog: newLog };
-        }));
+        });
+        setPatients(newPatients);
+        await apiService.updateData({ patients: newPatients });
     };
     
-    const handleAddClinicalNote = (patientId: string, noteData: Omit<ClinicalNote, 'id' | 'date' | 'therapistId'>) => {
+    const handleAddClinicalNote = async (patientId: string, noteData: Omit<ClinicalNote, 'id' | 'date' | 'therapistId'>) => {
         if (!currentUser || !('patientIds' in currentUser)) return; // Therapist check
         const newNote: ClinicalNote = { ...noteData, id: crypto.randomUUID(), date: Date.now(), therapistId: currentUser.id };
-        setPatients(prev => prev.map(p => p.id === patientId ? { ...p, clinicalNotes: [...p.clinicalNotes, newNote].sort((a,b)=> b.date - a.date) } : p ));
+        const newPatients = patients.map(p => p.id === patientId ? { ...p, clinicalNotes: [...p.clinicalNotes, newNote].sort((a,b)=> b.date - a.date) } : p );
+        setPatients(newPatients);
+        await apiService.updateData({ patients: newPatients });
     };
 
-    const handleAddJournalEntry = (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => {
+    const handleAddJournalEntry = async (patientId: string, entryData: Omit<PainJournalEntry, 'date'>) => {
         const newEntry: PainJournalEntry = { ...entryData, date: Date.now() };
-        setPatients(prev => 
-            prev.map(p => 
-                p.id === patientId 
-                    ? { ...p, painJournal: [...p.painJournal, newEntry].sort((a,b) => a.date - b.date) } 
-                    : p
-            )
+        const newPatients = patients.map(p => 
+            p.id === patientId 
+                ? { ...p, painJournal: [...p.painJournal, newEntry].sort((a,b) => a.date - b.date) } 
+                : p
         );
+        setPatients(newPatients);
+        await apiService.updateData({ patients: newPatients });
     };
 
-    const [activeChatPartner, setActiveChatPartner] = useState<Patient | Therapist | null>(null);
+    const handleUpsertAppointment = async (app: Partial<Appointment> & { id?: string }) => {
+        let newAppointments: Appointment[] = [];
+        let notificationText = '';
+        const therapist = therapists.find(t => t.id === app.therapistId);
 
-    const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        if (app.id) { // Update existing
+            newAppointments = appointments.map(a => a.id === app.id ? { ...a, ...app } as Appointment : a);
+            if (app.status === 'canceled') {
+                notificationText = `Terapistiniz ${therapist?.name}, ${new Date(app.start!).toLocaleString('tr-TR')} tarihli randevunuzu iptal etti.`;
+            }
+        } else { // Create new
+            const newApp: Appointment = {
+                id: crypto.randomUUID(),
+                patientId: app.patientId!,
+                therapistId: app.therapistId!,
+                start: app.start!,
+                end: app.start! + 30 * 60 * 1000, // 30 min default
+                status: 'scheduled',
+                notes: app.notes,
+            };
+            newAppointments = [...appointments, newApp];
+            notificationText = `Terapistiniz ${therapist?.name} sizin için yeni bir randevu oluşturdu: ${new Date(newApp.start).toLocaleString('tr-TR')}.`;
+        }
+        
+        setAppointments(newAppointments);
+        
+        if (notificationText && app.patientId) {
+            const newNotification: Notification = {
+                id: crypto.randomUUID(),
+                userId: app.patientId,
+                text: notificationText,
+                timestamp: Date.now(),
+                read: false,
+            };
+            const newNotifications = [...notifications, newNotification];
+            setNotifications(newNotifications);
+            await apiService.updateData({ appointments: newAppointments, notifications: newNotifications });
+        } else {
+            await apiService.updateData({ appointments: newAppointments });
+        }
+        
+        closeModal();
+    };
+
+
+    const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        // FIX: Used a type guard to safely access 'id' on editingItem.
         const id = (editingItem && 'id' in editingItem) ? editingItem.id : crypto.randomUUID();
         const name = formData.get('name') as string;
 
         if (modalType === 'category') {
             const newCategory = { id, name };
-            setCategories(prev => modalMode === 'add' ? [...prev, newCategory] : prev.map(c => c.id === id ? newCategory : c));
+            const newCategories = modalMode === 'add' ? [...categories, newCategory] : categories.map(c => c.id === id ? newCategory : c);
+            setCategories(newCategories);
+            await apiService.updateData({ categories: newCategories });
         }
         if (modalType === 'exercise') {
             const generatedData = JSON.parse(formData.get('generatedData') as string || '{}');
             const newExercise: Exercise = { id, name: generatedData.name || name, description: generatedData.description || formData.get('description') as string, sets: generatedData.sets || parseInt(formData.get('sets') as string), reps: generatedData.reps || parseInt(formData.get('reps') as string), imageUrl: generatedData.imageUrl || (editingItem as Exercise)?.imageUrl, videoUrl: generatedData.videoUrl || (editingItem as Exercise)?.videoUrl, audioUrl: generatedData.audioUrl || (editingItem as Exercise)?.audioUrl, };
-            setExercises(prev => modalMode === 'add' ? [...prev, newExercise] : prev.map(e => e.id === id ? newExercise : e));
+            const newExercises = modalMode === 'add' ? [...exercises, newExercise] : exercises.map(e => e.id === id ? newExercise : e);
+            setExercises(newExercises);
+            await apiService.updateData({ exercises: newExercises });
         }
         if (modalType === 'service') {
             const exerciseIds: string[] = [];
             formData.forEach((_, key) => key.startsWith('exercise-') && exerciseIds.push(key.replace('exercise-', '')));
             const newProgram = { id, name, description: formData.get('description') as string, categoryId: formData.get('categoryId') as string, exerciseIds, };
-            setPrograms(prev => modalMode === 'add' ? [...prev, newProgram] : prev.map(s => s.id === id ? newProgram : s));
+            const newPrograms = modalMode === 'add' ? [...programs, newProgram] : programs.map(s => s.id === id ? newProgram : s);
+            setPrograms(newPrograms);
+            await apiService.updateData({ programs: newPrograms });
         }
         if (modalType === 'patient') {
              const serviceIds: string[] = [];
              formData.forEach((_, key) => key.startsWith('service-') && serviceIds.push(key.replace('service-', '')));
-             const newPatient: Patient = { ...editingItem as Patient, id, name, email: formData.get('email') as string, therapistId: formData.get('therapistId') as string, serviceIds, };
-             setPatients(prev => modalMode === 'add' ? [...prev, newPatient] : prev.map(p => p.id === id ? newPatient : p));
+             const newPatient: Patient = { ...(editingItem || {}) as Patient, id, name, email: formData.get('email') as string, therapistId: formData.get('therapistId') as string, serviceIds, };
+             const newPatients = modalMode === 'add' ? [...patients, newPatient] : patients.map(p => p.id === id ? newPatient : p);
+             setPatients(newPatients);
+             await apiService.updateData({ patients: newPatients });
         }
         if(modalType === 'therapist') {
-            const newTherapist: Therapist = { ...editingItem as Therapist, id, name, email: formData.get('email') as string, bio: formData.get('bio') as string, profileImageUrl: formData.get('profileImageUrl') as string, };
-            setTherapists(prev => modalMode === 'add' ? [...prev, newTherapist] : prev.map(t => t.id === id ? newTherapist : t));
+            const newTherapist: Therapist = { ...(editingItem || {}) as Therapist, id, name, email: formData.get('email') as string, bio: formData.get('bio') as string, profileImageUrl: formData.get('profileImageUrl') as string, };
+            const newTherapists = modalMode === 'add' ? [...therapists, newTherapist] : therapists.map(t => t.id === id ? newTherapist : t);
+            setTherapists(newTherapists);
+            await apiService.updateData({ therapists: newTherapists });
+        }
+        if(modalType === 'appointment' && editingItem) {
+             handleUpsertAppointment({
+                therapistId: (editingItem as Appointment).therapistId,
+                start: (editingItem as Appointment).start,
+                patientId: formData.get('patientId') as string,
+                notes: formData.get('notes') as string,
+            });
         }
         if(modalType === 'clinicalNote' && editingItem && 'patientId' in editingItem) {
-            handleAddClinicalNote(editingItem.patientId, {
+            await handleAddClinicalNote(editingItem.patientId, {
                 subjective: formData.get('subjective') as string,
                 objective: formData.get('objective') as string,
                 assessment: formData.get('assessment') as string,
@@ -188,6 +302,51 @@ const App: React.FC = () => {
         }
         closeModal();
     };
+
+    const handleCategoryDelete = async (id: string) => {
+        const newCategories = categories.filter(c => c.id !== id);
+        setCategories(newCategories);
+        await apiService.updateData({ categories: newCategories });
+    };
+
+    const handleServiceDelete = async (id: string) => {
+        const newPrograms = programs.filter(s => s.id !== id);
+        setPrograms(newPrograms);
+        await apiService.updateData({ programs: newPrograms });
+    };
+    
+    const handlePatientDelete = async (patient: Patient) => {
+        const newPatients = patients.filter(p => p.id !== patient.id);
+        setPatients(newPatients);
+        await apiService.updateData({ patients: newPatients });
+    };
+    
+    const handleExerciseDelete = async (id: string) => {
+        const newExercises = exercises.filter(e => e.id !== id);
+        setExercises(newExercises);
+        await apiService.updateData({ exercises: newExercises });
+    };
+    
+    const handleTherapistDelete = async (id: string) => {
+        const newTherapists = therapists.filter(t => t.id !== id);
+        setTherapists(newTherapists);
+        await apiService.updateData({ therapists: newTherapists });
+    };
+
+    const handleAdminCancelAppointment = async (app: Appointment) => {
+        // FIX: Explicitly cast 'canceled' to its literal type to ensure the mapped array is of type Appointment[].
+        const newAppointments = appointments.map(a => a.id === app.id ? {...a, status: 'canceled' as 'canceled'} : a);
+        setAppointments(newAppointments);
+        await apiService.updateData({ appointments: newAppointments });
+    };
+
+    if (isLoading) {
+        return <FullScreenLoader />;
+    }
+
+    if (error) {
+        return <ErrorDisplay error={error} onRetry={fetchData} />;
+    }
 
     const renderContent = () => {
         switch(view) {
@@ -211,17 +370,19 @@ const App: React.FC = () => {
                     onSendMessage={handleSendMessage}
                     activeChatPartner={activeChatPartner}
                     setActiveChatPartner={setActiveChatPartner}
-                    setAppointments={setAppointments}
-                    setPatients={setPatients}
-                    setNotifications={setNotifications}
+                    setNotifications={async (newNotifications) => {
+                        setNotifications(newNotifications);
+                        await apiService.updateData({notifications: newNotifications});
+                    }}
                     onCompleteExercise={handleCompleteExercise}
                     onAddJournalEntry={handleAddJournalEntry}
-                    onCategoryDelete={(id) => setCategories(prev => prev.filter(c => c.id !== id))}
-                    onServiceDelete={(id) => setPrograms(prev => prev.filter(s => s.id !== id))}
-                    onPatientDelete={(patient) => setPatients(prev => prev.filter(p => p.id !== patient.id))}
-                    onExerciseDelete={(id) => setExercises(prev => prev.filter(e => e.id !== id))}
-                    onTherapistDelete={(id) => setTherapists(prev => prev.filter(t => t.id !== id))}
-                    onAdminCancelAppointment={(app) => setAppointments(prev => prev.map(a => a.id === app.id ? {...a, status: 'canceled'} : a))}
+                    onUpsertAppointment={handleUpsertAppointment}
+                    onCategoryDelete={handleCategoryDelete}
+                    onServiceDelete={handleServiceDelete}
+                    onPatientDelete={handlePatientDelete}
+                    onExerciseDelete={handleExerciseDelete}
+                    onTherapistDelete={handleTherapistDelete}
+                    onAdminCancelAppointment={handleAdminCancelAppointment}
                 />;
             default:
                 return <div>Error</div>;
@@ -238,10 +399,12 @@ const App: React.FC = () => {
                 editingItem={editingItem} 
                 onClose={closeModal} 
                 onSubmit={handleFormSubmit}
+                onUpsertAppointment={handleUpsertAppointment}
                 categories={categories}
                 exercises={exercises}
                 therapists={therapists}
                 programs={programs}
+                patients={patients}
             />
         </>
     );

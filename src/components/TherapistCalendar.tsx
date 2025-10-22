@@ -35,12 +35,10 @@ const TherapistCalendar: React.FC<TherapistCalendarProps> = ({ therapist, appoin
         setCurrentDate(newDate);
     };
 
-    const handleSlotClick = (day: Date, hour: number) => {
+    const handleSlotClick = (day: Date, hour: number, minute: number) => {
         const start = new Date(day);
-        start.setHours(hour, 0, 0, 0);
-        // openModal('appointment', 'add', { therapistId: therapist.id, start: start.getTime() });
-        // This functionality would require more complex state management in the modal for appointments.
-        alert(`Yeni randevu oluştur: ${start.toLocaleString()}`);
+        start.setHours(hour, minute, 0, 0);
+        openModal('appointment', 'add', { therapistId: therapist.id, start: start.getTime() });
     };
 
     return (
@@ -71,7 +69,7 @@ const TherapistCalendar: React.FC<TherapistCalendarProps> = ({ therapist, appoin
                                 {Array.from({length: 36}).map((_, i) => {
                                     const hour = 8 + Math.floor(i/2);
                                     const minute = (i % 2) * 30;
-                                    return <div key={i} className="empty-slot" style={{top: `${i * 30}px`}} onClick={() => handleSlotClick(day, hour)} />
+                                    return <div key={i} className="empty-slot" style={{top: `${i * 30}px`}} onClick={() => handleSlotClick(day, hour, minute)} />
                                 })}
                                 {dayAppointments.map(app => {
                                     const start = new Date(app.start);
@@ -92,8 +90,10 @@ const TherapistCalendar: React.FC<TherapistCalendarProps> = ({ therapist, appoin
                                             className={`appointment-slot status-${app.status}`} 
                                             style={{ top: `${top}px`, height: `${duration}px`}}
                                             title={`${patientName}\n${start.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} - ${end.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`}
+                                            onClick={() => openModal('appointment', 'edit', app)}
                                         >
                                             <strong>{patientName}</strong>
+                                            <span>{app.notes}</span>
                                         </div>
                                     );
                                 })}

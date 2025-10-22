@@ -73,6 +73,7 @@ export interface Appointment {
     start: number;
     end: number;
     status: 'scheduled' | 'completed' | 'canceled';
+    notes?: string;
     reminderSent?: boolean;
 }
 
@@ -118,4 +119,5 @@ export interface FAQItem {
 }
 
 
-export type EditableItem = Category | TherapyProgram | Patient | Exercise | Therapist | { categoryId: string } | { patientId: string } | null;
+// FIX: Added a type for appointment creation context to EditableItem to match usage in the app.
+export type EditableItem = Category | TherapyProgram | Patient | Exercise | Therapist | Appointment | { categoryId: string } | { patientId: string } | { therapistId: string; start: number; patientId?: string } | null;
