@@ -22,9 +22,9 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose, onSubmit, onUpsertAppointment, categories, exercises, therapists, patients, programs }) => {
-    const [isGeneratingExercise, setIsGeneratingExercise] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     const [generationStatus, setGenerationStatus] = useState('');
-    const [generatedExerciseData, setGeneratedExerciseData] = useState<Partial<Exercise> | null>(null);
+    const [generatedData, setGeneratedData] = useState<Partial<Exercise> | null>(null);
 
     // State for image-to-video generation
     const [videoImageFile, setVideoImageFile] = useState<File | null>(null);
@@ -32,31 +32,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
     const [videoAspectRatio, setVideoAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const videoFileInputRef = useRef<HTMLInputElement>(null);
     
-    // State for Veo API Key selection
-    const [isApiKeySelected, setIsApiKeySelected] = useState(false);
-    const [apiKeyError, setApiKeyError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             // Reset all generation state when modal opens
-            setGeneratedExerciseData(null);
-            setIsGeneratingExercise(false);
+            setGeneratedData(null);
+            setIsGenerating(false);
             setGenerationStatus('');
             setVideoImageFile(null);
             setVideoPrompt('');
             if (videoFileInputRef.current) videoFileInputRef.current.value = "";
-            setApiKeyError('');
-
-            // Check for API key for Veo
-            const checkApiKey = async () => {
-                // @ts-ignore
-                if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-                    // @ts-ignore
-                    const hasKey = await window.aistudio.hasSelectedApiKey();
-                    setIsApiKeySelected(hasKey);
-                }
-            };
-            checkApiKey();
         }
     }, [isOpen]);
 
@@ -66,14 +51,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
         const prompt = formData.get('prompt') as string;
         const wants = { description: formData.has('wants-description'), image: formData.has('wants-image'), video: formData.has('wants-video'), audio: formData.has('wants-audio'), };
         if (!prompt) return;
-        setIsGeneratingExercise(true);
-        setGeneratedExerciseData(null);
+        
+        setIsGenerating(true);
+        setGeneratedData(null);
+        setGenerationStatus('Egzersiz yapay zeka ile oluşturuluyor... Bu işlem biraz zaman alabilir.');
+
         try {
-            await generateExerciseWithAI(prompt, wants, setGenerationStatus, (data) => setGeneratedExerciseData(prev => ({...prev, ...data})));
+            const finalData = await generateExerciseWithAI(prompt, wants);
+            setGeneratedData(finalData);
+            setGenerationStatus('Oluşturma tamamlandı! Lütfen kontrol edip kaydedin.');
         } catch (error) {
             setGenerationStatus(`Bir hata oluştu: ${error instanceof Error ? error.message : "Bilinmeyen Hata"}`);
         } finally {
-            setIsGeneratingExercise(false);
+            setIsGenerating(false);
         }
     };
     
@@ -83,38 +73,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
             setGenerationStatus("Lütfen bir başlangıç görseli seçin.");
             return;
         }
-
-        setApiKeyError('');
-        // @ts-ignore
-        if (window.aistudio && !isApiKeySelected) {
-            try {
-                // @ts-ignore
-                await window.aistudio.openSelectKey();
-                // Optimistically assume key is selected to avoid race conditions.
-                setIsApiKeySelected(true); 
-            } catch(e) {
-                 console.error("API Key selection was cancelled or failed.", e);
-                 setApiKeyError("Video oluşturmak için bir API anahtarı seçmeniz gerekmektedir. Lütfen butona tekrar tıklayın.");
-                 return;
-            }
-        }
         
-        setIsGeneratingExercise(true);
-        setGeneratedExerciseData(null);
+        setIsGenerating(true);
+        setGeneratedData(null);
         setGenerationStatus('');
 
         try {
             const generatedData = await generateVideoFromImageAI(videoImageFile, videoPrompt, videoAspectRatio, setGenerationStatus);
-            setGeneratedExerciseData(generatedData);
+            setGeneratedData(generatedData);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Bilinmeyen Hata";
             setGenerationStatus(`Bir hata oluştu: ${errorMessage}`);
-            if (errorMessage.includes("API Anahtarı")) {
-                 setApiKeyError(errorMessage);
-                 setIsApiKeySelected(false); // Reset key state if it failed
-            }
         } finally {
-            setIsGeneratingExercise(false);
+            setIsGenerating(false);
         }
     };
     
@@ -135,7 +106,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
     const editingExercise = isExercise ? editingItem as Exercise : null;
     const editingTherapist = isTherapist ? editingItem as Therapist : null;
     const editingAppointment = isAppointment ? editingItem as Appointment : null;
-    const mergedExerciseData = { ...editingExercise, ...generatedExerciseData };
+    const mergedExerciseData = { ...editingExercise, ...generatedData };
 
     const renderAppointmentContent = () => {
         if (!editingAppointment) return null;
@@ -197,22 +168,22 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                 
                 {isAppointment && renderAppointmentContent()}
 
-                {isExercise && mode === 'add' && !generatedExerciseData && (
+                {isExercise && mode === 'add' && !generatedData && (
                     <>
                         <form onSubmit={handleGenerateExercise}>
                              <div className="ai-generator-box">
                                 <h4>Metinden Egzersiz Oluşturucu</h4>
-                                <div className="form-group"><label htmlFor="prompt">Egzersiz Açıklaması</label><textarea id="prompt" name="prompt" rows={2} placeholder="Örn: Oturarak yapılan basit bir diz güçlendirme egzersizi" required disabled={isGeneratingExercise}/></div>
+                                <div className="form-group"><label htmlFor="prompt">Egzersiz Açıklaması</label><textarea id="prompt" name="prompt" rows={2} placeholder="Örn: Oturarak yapılan basit bir diz güçlendirme egzersizi" required disabled={isGenerating}/></div>
                                 <div className="form-group">
                                     <label>Neler Oluşturulsun?</label>
                                     <div className="checklist-group">
-                                        <div className="checklist-item"><input type="checkbox" name="wants-description" defaultChecked disabled={isGeneratingExercise}/><label>Açıklama</label></div>
-                                        <div className="checklist-item"><input type="checkbox" name="wants-image" defaultChecked disabled={isGeneratingExercise}/><label>Görsel</label></div>
-                                        <div className="checklist-item"><input type="checkbox" name="wants-video" defaultChecked disabled={isGeneratingExercise}/><label>Video</label></div>
-                                        <div className="checklist-item"><input type="checkbox" name="wants-audio" defaultChecked disabled={isGeneratingExercise}/><label>Sesli Anlatım</label></div>
+                                        <div className="checklist-item"><input type="checkbox" name="wants-description" defaultChecked disabled={isGenerating}/><label>Açıklama</label></div>
+                                        <div className="checklist-item"><input type="checkbox" name="wants-image" defaultChecked disabled={isGenerating}/><label>Görsel</label></div>
+                                        <div className="checklist-item"><input type="checkbox" name="wants-video" defaultChecked disabled={isGenerating}/><label>Video</label></div>
+                                        <div className="checklist-item"><input type="checkbox" name="wants-audio" defaultChecked disabled={isGenerating}/><label>Sesli Anlatım</label></div>
                                     </div>
                                 </div>
-                                <button type="submit" className="btn btn-primary" disabled={isGeneratingExercise}>{isGeneratingExercise ? 'Oluşturuluyor...' : 'Metinden Oluştur'}</button>
+                                <button type="submit" className="btn btn-primary" disabled={isGenerating}>{isGenerating ? 'Oluşturuluyor...' : 'Metinden Oluştur'}</button>
                             </div>
                         </form>
                         <form onSubmit={handleGenerateVideoFromImage}>
@@ -220,29 +191,27 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                                 <h4>Görselden Video Oluşturucu (Veo)</h4>
                                 <div className="form-group">
                                      <label htmlFor="video-image">Başlangıç Görseli</label>
-                                     <input type="file" id="video-image" name="video-image" accept="image/*" ref={videoFileInputRef} onChange={(e) => setVideoImageFile(e.target.files?.[0] || null)} required disabled={isGeneratingExercise}/>
+                                     <input type="file" id="video-image" name="video-image" accept="image/*" ref={videoFileInputRef} onChange={(e) => setVideoImageFile(e.target.files?.[0] || null)} required disabled={isGenerating}/>
                                 </div>
-                                <div className="form-group"><label htmlFor="video-prompt">Video İstem (Prompt)</label><textarea id="video-prompt" name="video-prompt" value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)} rows={2} placeholder="Örn: Bir kişi bu egzersizi yavaşça yapıyor, sinematik stil" required disabled={isGeneratingExercise}/></div>
+                                <div className="form-group"><label htmlFor="video-prompt">Video İstem (Prompt)</label><textarea id="video-prompt" name="video-prompt" value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)} rows={2} placeholder="Örn: Bir kişi bu egzersizi yavaşça yapıyor, sinematik stil" required disabled={isGenerating}/></div>
                                 <div className="form-group">
                                     <label htmlFor="aspect-ratio">En-Boy Oranı</label>
-                                    <select id="aspect-ratio" name="aspect-ratio" value={videoAspectRatio} onChange={e => setVideoAspectRatio(e.target.value as '16:9' | '9:16')} disabled={isGeneratingExercise}>
+                                    <select id="aspect-ratio" name="aspect-ratio" value={videoAspectRatio} onChange={e => setVideoAspectRatio(e.target.value as '16:9' | '9:16')} disabled={isGenerating}>
                                         <option value="16:9">16:9 (Yatay)</option>
                                         <option value="9:16">9:16 (Dikey)</option>
                                     </select>
                                 </div>
-                                {!isApiKeySelected && <p className="generation-status" style={{backgroundColor: 'var(--note-background-color)', color: 'var(--dark-color)'}}>Video oluşturmak için bir API anahtarı seçmeniz gerekmektedir. <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer">Faturalandırma hakkında bilgi edinin.</a></p>}
-                                {apiKeyError && <p className="login-error">{apiKeyError}</p>}
-                                <button type="submit" className="btn btn-primary" disabled={isGeneratingExercise}>{isApiKeySelected ? (isGeneratingExercise ? 'Oluşturuluyor...' : 'Görselden Video Oluştur') : 'API Anahtarı Seç ve Oluştur'}</button>
+                                <button type="submit" className="btn btn-primary" disabled={isGenerating}>{isGenerating ? 'Oluşturuluyor...' : 'Görselden Video Oluştur'}</button>
                             </div>
                         </form>
 
-                        {(isGeneratingExercise || generationStatus) && <p className="generation-status">{generationStatus}</p>}
+                        {(isGenerating || generationStatus) && <p className="generation-status">{generationStatus}</p>}
                     </>
                 )}
 
-                {(!isExercise || mode === 'edit' || (mode === 'add' && generatedExerciseData) || isClinicalNote || isCategory || isService || isPatient || isTherapist) && (
+                {(!isExercise || mode === 'edit' || (mode === 'add' && generatedData) || isClinicalNote || isCategory || isService || isPatient || isTherapist) && (
                     <form onSubmit={onSubmit} className="modal-form">
-                        <input type="hidden" name="generatedData" value={JSON.stringify(generatedExerciseData || {})} />
+                        <input type="hidden" name="generatedData" value={JSON.stringify(generatedData || {})} />
                         
                         {!isClinicalNote && !isAppointment && <div className="form-group"><label htmlFor="name">İsim</label><input type="text" id="name" name="name" defaultValue={mergedExerciseData?.name || (editingItem && 'name' in editingItem ? editingItem.name : '') || ''} required /></div>}
                         {(isService || isExercise) && <div className="form-group"><label htmlFor="description">Açıklama</label><textarea id="description" name="description" rows={4} defaultValue={mergedExerciseData?.description || (editingItem && 'description' in editingItem ? editingItem.description : '') || ''} required /></div>}
@@ -252,11 +221,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, mode, type, editingItem, onClose,
                         </>)}
                         {isExercise && (<>
                             <div className="form-row"><div className="form-group"><label htmlFor="sets">Set</label><input type="number" id="sets" name="sets" defaultValue={mergedExerciseData?.sets || 3} required min="1" /></div><div className="form-group"><label htmlFor="reps">Tekrar</label><input type="number" id="reps" name="reps" defaultValue={mergedExerciseData?.reps || 10} required min="1" /></div></div>
-                            {generatedExerciseData && (<div className="asset-previews">
+                            {generatedData && (<div className="asset-previews">
                                 <h4>Oluşturulan Materyaller</h4>
-                                {generatedExerciseData.imageUrl && <div className="preview-item"><p>Görsel:</p><img src={generatedExerciseData.imageUrl} alt="AI generated exercise" className="preview-image"/></div>}
-                                {generatedExerciseData.videoUrl && <div className="preview-item"><p>Video:</p><video src={generatedExerciseData.videoUrl} controls className="preview-video"/></div>}
-                                {generatedExerciseData.audioUrl && <div className="preview-item"><p>Ses:</p><audio src={generatedExerciseData.audioUrl} controls className="preview-audio"/></div>}
+                                {generatedData.imageUrl && <div className="preview-item"><p>Görsel:</p><img src={generatedData.imageUrl} alt="AI generated exercise" className="preview-image"/></div>}
+                                {generatedData.videoUrl && <div className="preview-item"><p>Video:</p><video src={generatedData.videoUrl} controls className="preview-video"/></div>}
+                                {generatedData.audioUrl && <div className="preview-item"><p>Ses:</p><audio src={generatedData.audioUrl} controls className="preview-audio"/></div>}
                             </div>)}
                         </>)}
                         {isPatient && (<>
